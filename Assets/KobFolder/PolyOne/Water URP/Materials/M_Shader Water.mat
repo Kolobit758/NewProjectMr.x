@@ -55,15 +55,15 @@ Material:
     - _Amplitude_Wave: 0.01
     - _Fall_Off: 0.91
     - _Frequency_Wave: 5
-    - _Max_Depth: 5
+    - _Max_Depth: 2.95
     - _QueueControl: 0
     - _QueueOffset: 0
     - _Refration_Intensity: 0.01
-    - _Scale_Noise: 1500
-    - _Speed_Noise: 300
+    - _Scale_Noise: 50
+    - _Speed_Noise: 5
     - _Speed_Wave: 0.5
     m_Colors:
-    - _Deep_Water_Color: {r: 0.36552152, g: 0.6981132, b: 0.61496526, a: 0}
-    - _Shallow_Water_Color: {r: 0.16078433, g: 0.8784314, b: 0.7335044, a: 0}
+    - _Deep_Water_Color: {r: 1, g: 1, b: 1, a: 0}
+    - _Shallow_Water_Color: {r: 0, g: 1, b: 0.09720373, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
