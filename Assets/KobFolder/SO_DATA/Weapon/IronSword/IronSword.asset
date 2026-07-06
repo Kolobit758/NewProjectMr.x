@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7108df0b762961545b37b799dc2d7983, type: 3}
+  m_Name: IronSword
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  itemId: IronSword
+  itemName: IronSword
+  itemType: 3
+  itemIcon: {fileID: 0}
+  detail: 
+  dropItemPrefab: {fileID: 4323044561503341240, guid: f137107db2c326e41a18c32181596e3c, type: 3}
+  weaponName: IronSword
+  weaponPrefab: {fileID: 4323044561503341240, guid: f137107db2c326e41a18c32181596e3c, type: 3}
+  historyDetail: _____________________
+  weaponAnimatorOverride: {fileID: 22100000, guid: ab68954bfe3e2994f9b597e8c04c3337, type: 2}
+  comboSteps:
+  - comboName: 01
+    animationTrigger: Slash01
+    damageMultiplier: 1
+    dashForce: 1.5
+    attackRange: 2
+  - comboName: 02
+    animationTrigger: Slash02
+    damageMultiplier: 1
+    dashForce: 1.5
+    attackRange: 2
+  - comboName: 03
+    animationTrigger: Slash03
+    damageMultiplier: 2
+    dashForce: 5
+    attackRange: 2
+  comboResetTime: 1.2
+  weaponType: 0
+  quality: 2
+  baseDamage: 3
+  attackRange: 5
+  attackDash: 10
+  attackCooldown: 0.2
+  projectilePrefab: {fileID: 0}
+  projectileSpeed: 0
+  manaCost: 0
