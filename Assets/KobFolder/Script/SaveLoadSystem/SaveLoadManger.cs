@@ -62,7 +62,7 @@ public class SaveLoadManager : MonoBehaviour
             data.playerInventoryValues = ResourceInventory.Instance.GetSaveItemAmounts();
         }
 
-        // 2. 🔥 อัปเดตสะพานเชื่อมสัตว์เลี้ยงข้ามมิติ ดึงค่าเป็นสตริง/ตัวเลข ป้องกัน ScriptableObject หายตอนปิดเอนจิ้น!
+        // 2. 🔥 อัปเดตสะพานเชื่อมสัตว์เลี้ยงข้ามมิติ
         if (AnimalInventory.Instance != null)
         {
             data.savedAnimalTemplates = AnimalInventory.Instance.GetSaveTemplateIds();
@@ -71,7 +71,7 @@ public class SaveLoadManager : MonoBehaviour
             data.savedAnimalHPs = AnimalInventory.Instance.GetSaveCurrentHPs();
         }
 
-        // 3. อัปเดตข้อมูล Outpost ล่าสุด
+        // 3. อัปเดตข้อมูล Outpost ล่าสุด (คลังแร่กลาง)
         if (OutpostVaultManager.Instance != null)
         {
             data.capturedOutpostIDs = new List<string>(OutpostVaultManager.Instance.capturedOutpostIDs);
@@ -86,6 +86,20 @@ public class SaveLoadManager : MonoBehaviour
             }
         }
 
+        // 🟢 🔥 [FIXED] เพิ่มการกวาดข้อมูล State สถานะยึดครองของ Outpost ทุกอันในฉากลง SaveData 
+        // ก่อนหน้านี้ขาดตรงนี้ไป ทำให้ส่งค่าว่าง [] ไปในไฟล์ JSON เสมอ!
+        OutPosManager[] allOutposts = FindObjectsByType<OutPosManager>(FindObjectsSortMode.None);
+        data.outpostStateIds.Clear();
+        data.outpostStateOccupied.Clear();
+        foreach (var outpost in allOutposts)
+        {
+            if (outpost != null)
+            {
+                data.outpostStateIds.Add(outpost.outpostId);
+                data.outpostStateOccupied.Add(outpost.isPlayerOccupy);
+            }
+        }
+
         data.currentMapName = SceneManager.GetActiveScene().name;
 
         // 💾 บันทึกลงไฟล์เซฟ JSON
@@ -93,7 +107,7 @@ public class SaveLoadManager : MonoBehaviour
         File.WriteAllText(SavePath, json);
         inventoryDirty = false;
 
-        Debug.Log("[Save System] 💾 ปลอดภัย 100%! บันทึกข้อมูลและซิงค์ระบบสัตว์เลี้ยงสำเร็จ!");
+        Debug.Log("[Save System] 💾 ปลอดภัย 100%! บันทึกข้อมูลและซิงค์ระบบ Outpost State สำเร็จ!");
     }
 
     /// <summary>
@@ -114,13 +128,20 @@ public class SaveLoadManager : MonoBehaviour
 
         if (data.playerInventoryKeys != null && data.playerInventoryKeys.Count > 0)
         {
+            // 🟢 เพิ่มบรรทัดนี้ในฟังก์ชัน LoadGame() ของ SaveLoadManager.cs ทันทีหลังจากสั่งโหลดข้อมูลกระเป๋าเสร็จ:
             if (ResourceInventory.Instance != null)
             {
+                // 1. โหลดข้อมูลลง RAM ปกติ
                 ResourceInventory.Instance.LoadSavedSlots(data.playerInventoryKeys, data.playerInventoryValues);
-                Debug.Log("[Load] 🎒 คืนค่าไอเทมลงช่องกระเป๋าตัวละครสำเร็จ!");
 
-                KobInventoryUI ui = FindAnyObjectByType<KobInventoryUI>();
-                if (ui != null) ui.RefreshGridDisplay();
+                // 2. 🟢 [FIX SUCCESS] วิ่งไปสั่งสั่งรีเฟรชหน้าจอ UI ตรงๆ เลย ไม่ต้องยิงผ่านท่อ Event!
+                KobInventoryUI mainUI = FindAnyObjectByType<KobInventoryUI>();
+                if (mainUI != null) mainUI.RefreshGridDisplay();
+
+                KobToolbarUI toolbarUI = FindAnyObjectByType<KobToolbarUI>();
+                if (toolbarUI != null) toolbarUI.RefreshToolbarDisplay();
+
+                Debug.Log("[Load] 🎒 คืนค่าไอเทมลงช่องกระเป๋าและบังคับสั่ง UI รีเฟรชหน้าจอตรงๆ สำเร็จ!");
             }
             else
             {
@@ -131,7 +152,7 @@ public class SaveLoadManager : MonoBehaviour
             }
         }
 
-        // 🔥 คืนชีพสัตว์เลี้ยงผ่านฐานข้อมูลกลาง ปิดเปิด Unity ใหม่ ของก็ไม่หาย ID ไม่เพี้ยน!
+        // 🔥 คืนชีพสัตว์เลี้ยงผ่านฐานข้อมูลกลาง
         if (AnimalInventory.Instance != null)
         {
             AnimalInventory.Instance.LoadSavedAnimalSlots(
@@ -154,8 +175,8 @@ public class SaveLoadManager : MonoBehaviour
             OutpostVaultManager.Instance.SetVaultInventoryData(vaultData);
 
             OutpostVaultManager.Instance.activeOutpostRates.Clear();
-            
-            // 🟢 FIX SUCCESS: เติม FindObjectsSortMode.None ในวงเล็บ สยบบั๊ก Unity 6.0 ดับขีดแดงตัวแรก!
+
+            // 🟢 FIX SUCCESS: เติม FindObjectsSortMode.None ในวงเล็บ สยบบั๊ก Unity 6.0
             OutPosManager[] allOutposts = FindObjectsByType<OutPosManager>(FindObjectsSortMode.None);
             foreach (var outpost in allOutposts)
             {
@@ -169,7 +190,7 @@ public class SaveLoadManager : MonoBehaviour
                 }
             }
 
-            // 🟢 FIX SUCCESS: เติม FindObjectsSortMode.None ดับขีดแดงตัวที่สอง!
+            // 🟢 FIX SUCCESS: โหลดข้อมูลสถานะจริง พร้อมสั่ง Update Visual สีโมเดลตามทันที
             OutPosManager[] allOutpostsForState = FindObjectsByType<OutPosManager>(FindObjectsSortMode.None);
             for (int i = 0; i < data.outpostStateIds.Count; i++)
             {
@@ -181,6 +202,7 @@ public class SaveLoadManager : MonoBehaviour
                     if (outpost.outpostId == loadedOutpostId)
                     {
                         outpost.isPlayerOccupy = loadedOccupied;
+                        outpost.UpdateOutpostVisual(); // 🔥 [เพิ่มตรงนี้] ให้เปลี่ยนสีช่องหรือธงตามเซฟทันที
                         Debug.Log($"[Load] ✅ Restored outpost state: {loadedOutpostId} -> Occupied={loadedOccupied}");
                         break;
                     }
@@ -198,6 +220,7 @@ public class SaveLoadManager : MonoBehaviour
         if (!pendingInventoryLoad || ResourceInventory.Instance == null) return;
 
         ResourceInventory.Instance.LoadSavedSlots(pendingSaveItemIds, pendingSaveItemAmounts);
+
         pendingInventoryLoad = false;
         pendingSaveItemIds = null;
         pendingSaveItemAmounts = null;
@@ -247,8 +270,7 @@ public class SaveLoadManager : MonoBehaviour
                 OutpostVaultManager.Instance.SetVaultInventoryData(vaultData);
 
                 OutpostVaultManager.Instance.activeOutpostRates.Clear();
-                
-                // 🟢 FIX SUCCESS: เติม FindObjectsSortMode.None ในวงเล็บ ดับขีดแดงตัวที่สาม!
+
                 OutPosManager[] allOutposts = FindObjectsByType<OutPosManager>(FindObjectsSortMode.None);
                 foreach (var outpost in allOutposts)
                 {
@@ -271,6 +293,7 @@ public class SaveLoadManager : MonoBehaviour
                         if (outpost.outpostId == loadedOutpostId)
                         {
                             outpost.isPlayerOccupy = loadedOccupied;
+                            outpost.UpdateOutpostVisual(); // 🔥 [เพิ่มตรงนี้ด้วย] เผื่อกรณียิงผ่านท่อ Pending
                             Debug.Log($"[Load] ✅ Restored outpost state: {loadedOutpostId} -> Occupied={loadedOccupied}");
                             break;
                         }
@@ -288,7 +311,6 @@ public class SaveLoadManager : MonoBehaviour
         {
             if (AnimalInventory.Instance != null)
             {
-                // 🔥 เรียกใช้ท่อคืนชีพสัตว์เลี้ยงก้อนประวัติ Database 
                 AnimalInventory.Instance.LoadSavedAnimalSlots(
                     pendingSaveData.savedAnimalTemplates,
                     pendingSaveData.savedAnimalUniqueIds,

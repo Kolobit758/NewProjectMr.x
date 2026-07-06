@@ -56,6 +56,9 @@ public class ArmyController : MonoBehaviour
     private List<FormationUnitController> unitControllers = new List<FormationUnitController>();
     private GameObject player;
     private Vector3 manualTargetPoint; // จำจุดที่ผู้เล่นคลิกสั่งให้เดินไป
+    // --- เพิ่มตัวแปรลิสต์นี้เข้าไปที่ส่วนหัวของคลาส เพื่อเอาไว้แทร็กจับคู่ข้อมูลส่งให้ UI ---
+    private List<UnitInstance> spawnedUnitInstances = new List<UnitInstance>();
+    private List<GameObject> spawnedUnitGameObjects = new List<GameObject>();
 
     void Awake()
     {
@@ -70,10 +73,16 @@ public class ArmyController : MonoBehaviour
         StartCoroutine(UpdateArmyPositionsRoutine());
     }
 
+    // --- ปรับปรุงฟังก์ชัน InitializeArmy() ของคุณเพื่อให้จดจำ Instance ยูนิตที่เกิดขึ้น ---
     public void InitializeArmy()
     {
         armyUnits.Clear();
         unitControllers.Clear();
+
+        // 🟢 [เพิ่ม] เคลียร์ลิสต์จำค่าสำหรับส่งให้ HUD
+        spawnedUnitInstances.Clear();
+        spawnedUnitGameObjects.Clear();
+
         if (formationData == null) return;
 
         for (int y = 0; y < formationData.gridHeight; y++)
@@ -83,19 +92,32 @@ public class ArmyController : MonoBehaviour
                 if (y < formationData.rows.Length && x < formationData.rows[y].cols.Length && formationData.rows[y].cols[x] == true)
                 {
                     ArmySlotAssignment localAssign = slotAssignments.Find(s => s.row == y && s.col == x && s.unitData != null);
-                    if (localAssign != null) SpawnSingleLocalUnit(localAssign, y, x);
+                    if (localAssign != null)
+                    {
+                        // สำหรับทหารหลักตัวทดสอบ (ถ้าคุณเขียนระบบ UnitInstance ให้มันครอบคลุมก็ใช้วิธีเดียวกันได้)
+                        SpawnSingleLocalUnit(localAssign, y, x);
+                    }
                     else
                     {
                         TeamFormationManager.ActiveSlotAssignment teamAssign = null;
                         if (TeamFormationManager.Instance != null)
                             teamAssign = TeamFormationManager.Instance.activeFormation.Find(a => a.row == y && a.col == x);
 
-                        if (teamAssign != null && teamAssign.unit != null) SpawnSingleTamedUnit(teamAssign.unit, y, x);
+                        if (teamAssign != null && teamAssign.unit != null)
+                        {
+                            SpawnSingleTamedUnit(teamAssign.unit, y, x);
+                        }
                     }
                 }
             }
         }
         if (armyUnits.Count == 0) SetupAllAgents();
+
+        // 🟢 [เพิ่มบรรทัดนี้ตอนท้ายสุด] สั่งให้ระบบ HUD หน้าจอวาดการ์ดสกิลตามยูนิตที่พึ่งเกิดทันที!
+        if (ArmySkillHUDManager.Instance != null)
+        {
+            ArmySkillHUDManager.Instance.RefreshSkillCards(spawnedUnitInstances, spawnedUnitGameObjects);
+        }
     }
 
     public void RespawnArmyBasedOnManager()
@@ -113,6 +135,7 @@ public class ArmyController : MonoBehaviour
         if (controller != null) unitControllers.Remove(controller);
     }
 
+    // --- ปรับไส้ใน ฟังก์ชันช่วยเกิด SpawnSingleTamedUnit นิดเดียวให้มัน Add เข้าลิสต์ ---
     private void SpawnSingleTamedUnit(UnitInstance unit, int row, int col)
     {
         if (unit == null || unit.template == null || unit.template.unitPrefab == null) return;
@@ -123,6 +146,10 @@ public class ArmyController : MonoBehaviour
         AnimalStatsManager statsManager = spawnedObj.GetComponent<AnimalStatsManager>() ?? spawnedObj.AddComponent<AnimalStatsManager>();
         statsManager.SetupFromInstance(unit);
         ConfigureSpawnedAgent(spawnedObj, unit);
+
+        // 🟢 [เพิ่มตรงนี้] จดบันทึกข้อมูลของตัวนี้ไว้
+        spawnedUnitInstances.Add(unit);
+        spawnedUnitGameObjects.Add(spawnedObj);
     }
 
     private void SpawnSingleLocalUnit(ArmySlotAssignment assignment, int row, int col)
@@ -242,6 +269,14 @@ public class ArmyController : MonoBehaviour
     void Update()
     {
         HandleCommandInputs();
+
+        foreach (var instance in spawnedUnitInstances)
+        {
+            if (instance != null && instance.currentCooldownTimer > 0f)
+            {
+                instance.currentCooldownTimer -= Time.deltaTime;
+            }
+        }
 
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         if (Input.GetKey(KeyCode.X))

@@ -18,4 +18,7 @@ public class UnitDataSO : ScriptableObject
     [Header("Randomization Bounds (Offsets)")]
     public int hpRandomRange = 10;          // baseMaxHP +/- random(0, hpRandomRange)
     public float attackRandomRange = 2f;    // baseAttackDamage +/- random(0, attackRandomRange)
+
+    [Header("Skill Configuration")]
+    public UnitSkillSO uniqueSkill; // 🔥 แปะสกิลประจำตัวสายพันธุ์ตรงนี้
 }

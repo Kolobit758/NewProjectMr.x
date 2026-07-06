@@ -18,6 +18,8 @@ public class UnitInstance
     [Header("Formation Status")]
     public bool isInFormation;       // ✅ แก้ไขเออร์เรอร์: เพิ่มตัวแปรนี้ตามที่ TamedUnitsManager เรียกใช้
     public string formationSlotKey;   // ✅ แก้ไขเออร์เรอร์: เพิ่มตัวแปรนี้เพื่อระบุพิกัดสล็อต
+    [Header("Skill Runtime")]
+    public float currentCooldownTimer; // ⏳ ตัวนับเวลาคูลดาวน์ปัจจุบันรายตัว
 
     public UnitInstance(UnitDataSO templateData)
     {
@@ -37,5 +39,11 @@ public class UnitInstance
 
         isInFormation = false;
         formationSlotKey = string.Empty;
+        currentCooldownTimer = 0f;
+    }
+
+    public bool IsSkillReady()
+    {
+        return template.uniqueSkill != null && currentCooldownTimer <= 0f;
     }
 }

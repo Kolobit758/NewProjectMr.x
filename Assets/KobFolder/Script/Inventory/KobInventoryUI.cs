@@ -11,6 +11,7 @@ public class KobInventoryUI : MonoBehaviour
 
     private void Awake()
     {
+        // 🟢 [FIXED] ดึงสิทธิ์ให้มาซับสคริบอีเวนต์ใน Awake เพื่อให้ทันจังหวะระบบโหลดเกมตัวอื่นทำงาน
         if (ResourceInventory.Instance != null)
         {
             ResourceInventory.Instance.OnInventoryChanged += RefreshGridDisplay;
@@ -18,6 +19,11 @@ public class KobInventoryUI : MonoBehaviour
     }
 
     private void OnEnable()
+    {
+        RefreshGridDisplay();
+    }
+
+    void Start()
     {
         RefreshGridDisplay();
     }
@@ -35,7 +41,7 @@ public class KobInventoryUI : MonoBehaviour
         if (ResourceInventory.Instance == null) return;
         if (gridRoot == null || slotPrefab == null) return;
 
-        // 🟢 สั่งเสกช่องกระเป๋าใหญ่ 24 ช่องตามขนาดฟิกคงเดิม
+        // 🟢 [FIXED] ถ้าสล็อตยังไม่เคยเกิด ให้เสกสร้างขึ้นมา
         if (spawnedSlots.Count == 0)
         {
             for (int i = 0; i < 24; i++)
@@ -43,24 +49,25 @@ public class KobInventoryUI : MonoBehaviour
                 GameObject slotGo = Instantiate(slotPrefab, gridRoot);
                 ItemSlotUI slotScript = slotGo.GetComponent<ItemSlotUI>();
 
-                // 💥 ไม้ตาย Minecraft: สั่งบวกเลข Offset กระโดดข้ามแถว Toolbar ไป 8 ช่อง!
-                // ช่องแรกของกระเป๋าใหญ่บนหน้าจอ (i=0) จะผูกเข้ากับช่องแรมที่ 8 จริงๆ ในระบบ C# (0 + 8 = 8)
-                // ช่องสุดท้ายบนหน้าจอ (i=23) จะผูกเข้ากับช่องแรมที่ 31 จริงๆ ในระบบ C# (23 + 8 = 31)
                 slotScript.slotIndex = i + 8; 
-                
                 spawnedSlots.Add(slotScript);
             }
         }
 
-        // ลูปพ่นสีรูปไอคอนไอเทมบนกระเป๋าใหญ่
+        // 🟢 ลูปอัปเดตพ่นสีทับข้อมูล Realtime
         for (int i = 0; i < spawnedSlots.Count; i++)
         {
-            int actualRamIndex = i + 8; // ดึงค่าจาก RAM ช่องที่ 8 เป็นต้นไปมาพ่นสี
+            int actualRamIndex = i + 8;
 
             if (actualRamIndex < ResourceInventory.Instance.slots.Length)
             {
                 InventorySlotData slotData = ResourceInventory.Instance.slots[actualRamIndex];
-                spawnedSlots[i].UpdateSlotDisplay(slotData);
+                
+                // 🟢 [FIXED] ส่งข้อมูลสเตตัสล่าสุดให้สล็อตวาดภาพเสมอ
+                if (slotData != null)
+                {
+                    spawnedSlots[i].UpdateSlotDisplay(slotData);
+                }
             }
         }
     }

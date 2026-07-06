@@ -16,16 +16,23 @@ public class KobToolbarUI : MonoBehaviour
 
     private void Awake()
     {
+        // 🟢 [FIXED] ย้ายมารองรับฟังก์ชันอัปเดตแผงพลังตั้งแต่จังหวะเปิดเกมสากล
         if (ResourceInventory.Instance != null)
         {
             ResourceInventory.Instance.OnInventoryChanged += RefreshToolbarDisplay;
         }
     }
 
+    private void OnEnable()
+    {
+        RefreshToolbarDisplay();
+    }
+
     private void Start()
     {
         BuildToolbarSlots();
         SelectSlot(0);
+        RefreshToolbarDisplay();
     }
 
     private void Update()
@@ -33,7 +40,6 @@ public class KobToolbarUI : MonoBehaviour
         HandleKeyboardInput();
     }
 
-    // 🏗️ ตรงฟังก์ชันเสกช่องสี่เหลี่ยมของ Toolbar ปรับให้ชี้พิกัด 0 ถึง 7 ตามเดิม
     private void BuildToolbarSlots()
     {
         if (toolbarSlots.Count > 0) return;
@@ -43,16 +49,16 @@ public class KobToolbarUI : MonoBehaviour
             GameObject slotGo = Instantiate(slotPrefab, toolbarRoot);
             ItemSlotUI slotScript = slotGo.GetComponent<ItemSlotUI>();
 
-            // 🟢 มอบสิทธิ์ขาด: ช่อง Toolbar ที่ i คุมพื้นที่อาเรย์ใน RAM ช่องที่ i ตรงๆ (0-7)
             slotScript.slotIndex = i;
             toolbarSlots.Add(slotScript);
         }
-        RefreshToolbarDisplay();
     }
 
     public void RefreshToolbarDisplay()
     {
         if (ResourceInventory.Instance == null) return;
+        
+        // 🟢 [FIXED] เช็คและคุมการสร้างสล็อตอย่างปลอดภัยก่อนลงสี
         if (toolbarSlots.Count == 0) BuildToolbarSlots();
 
         for (int i = 0; i < toolbarSlots.Count; i++)
@@ -60,7 +66,10 @@ public class KobToolbarUI : MonoBehaviour
             if (i < ResourceInventory.Instance.slots.Length)
             {
                 InventorySlotData slotData = ResourceInventory.Instance.slots[i];
-                toolbarSlots[i].UpdateSlotDisplay(slotData);
+                if (slotData != null)
+                {
+                    toolbarSlots[i].UpdateSlotDisplay(slotData);
+                }
             }
         }
     }
@@ -96,27 +105,21 @@ public class KobToolbarUI : MonoBehaviour
 
         if (selectionHighlight != null && toolbarSlots.Count > index && toolbarSlots[index] != null)
         {
-            // 🟢 1. บังคับให้ Unity คำนวณตำแหน่ง Grid Layout ของ Slot ให้เสร็จในเฟรมนี้ทันที ป้องกันพิกัดเอ๋อตอนเริ่มเกม
             Canvas.ForceUpdateCanvases();
-
-            // 🟢 2. ดึง RectTransform ของช่อง Slot ที่เรากำลังเลือก
             RectTransform slotRect = toolbarSlots[index].GetComponent<RectTransform>();
 
             if (slotRect != null)
             {
-                // 🟢 3. ย้ายกรอบสีแดงไปเกาะที่ตำแหน่งของช่อง Slot นั้นตรงๆ แบบอ้างอิง Parent เดียวกัน
                 selectionHighlight.transform.position = slotRect.transform.position;
-
-                // ถ้าย้ายแล้วยังไม่ตรง/หลุดจอ ให้สลับไปใช้บรรทัดข้างล่างนี้แทนครับ:
-                // selectionHighlight.anchoredPosition = slotRect.anchoredPosition;
             }
         }
     }
-    // 🟢 แปะฟังก์ชันนี้เพิ่มเข้าไปใน KobToolbarUI.cs เพื่อให้สคริปต์เมาส์ซ้ายวิ่งมาดึงค่าช่องปัจจุบันไปใช้
+
     public int GetCurrentSelectedIndex()
     {
         return currentSelectedIndex;
     }
+
     private void TriggerItemUsageOfSelectedSlot()
     {
         if (ResourceInventory.Instance == null) return;
@@ -125,14 +128,7 @@ public class KobToolbarUI : MonoBehaviour
 
         if (selectedSlot != null && !selectedSlot.IsEmpty && selectedSlot.itemData != null)
         {
-            // ดึงสคริปต์ไอเทม/อาวุธคอมโบขึ้นมาสวมใส่เข้าตัวผู้เล่นทันที
             selectedSlot.itemData.UseItem(GameObject.FindGameObjectWithTag("Player"));
-        }
-        else
-        {
-            // มือเปล่ากรณีช่องนั้นไม่มีของ
-            // PlayerCombat combat = FindAnyObjectByType<PlayerCombat>();
-            // if (combat != null) combat.UnEquipCurrentWeapon();
         }
     }
 

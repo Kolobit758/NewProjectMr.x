@@ -1,5 +1,3 @@
-// เพิ่มบรรทัดนี้
-
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,7 +7,13 @@ public class OutPosManager : MonoBehaviour
     [Header("Capture")]
     public bool isPlayerOccupy;
     public float captureTime = 5f;
-    
+    public GameObject outPosArea;
+
+    // 🟢 NEW: ตัวแปรสำหรับเปลี่ยน Material ตามสถานะการยึดครอง
+    [Header("Visuals")]
+    public Material CapturedMat;
+    public Material NonCapturedMat;
+
     // 🟢 NEW: เพิ่ม outpostId เพื่อบ่งบอกว่า Outpost ชิ้นนี้คืออะไร (เอาไว้เซฟกับ Load)
     public string outpostId = "outpost_default";
 
@@ -23,6 +27,12 @@ public class OutPosManager : MonoBehaviour
 
     private int playerInside = 0;
     private Coroutine captureCoroutine;
+
+    // 🟢 NEW: เช็คสถานะเริ่มต้นเมื่อเปิดเกม/โหลดซีน
+    private void Start()
+    {
+        UpdateOutpostVisual();
+    }
 
     #region Resource
 
@@ -76,6 +86,9 @@ public class OutPosManager : MonoBehaviour
         isPlayerOccupy = true;
         Debug.Log($"[Outpost] ยึดฐานสำเร็จ! กำลังเชื่อมต่อระบบส่งส่วยทรัพยากร {resourceToProduce.itemName} เข้าสู่คลังกลาง...");
 
+        // 🟢 NEW: อัปเดต Material ทันทีเมื่อยึดสำเร็จ
+        UpdateOutpostVisual();
+
         // 🟢 แก้ไขจุดที่ 2: ยึดเสร็จปุ๊บ ยิงพิกัดส่งข้อมูลไปบอกคลังกลาง OutpostVaultManager ทันที!
         if (OutpostVaultManager.Instance != null && resourceToProduce != null)
         {
@@ -86,7 +99,7 @@ public class OutPosManager : MonoBehaviour
 
             // ส่งข้อมูลเข้าคลังสะสมกลาง คลังฐานจะเริ่มผลิตของให้เราอัตโนมัติเบื้องหลังทุกๆ 1 นาทีทันที!
             OutpostVaultManager.Instance.activeOutpostRates.Add(newProd);
-            
+
             // 🟢 NEW: เพิ่ม outpostId ลงใน capturedOutpostIDs เพื่อบันทึกว่า Outpost นี้ยึดแล้ว
             OutpostVaultManager.Instance.capturedOutpostIDs.Add(outpostId);
             Debug.Log($"[Outpost] ✅ บันทึก outpostId: {outpostId} ลงรายชื่อที่ยึด");
@@ -135,8 +148,41 @@ public class OutPosManager : MonoBehaviour
 
     public void RemoveEnemy(GameObject enemy)
     {
-        enemies.Remove(enemy);
-        TryStartCapture();
+        if (enemies.Remove(enemy))
+        {
+            TryStartCapture();
+        }
     }
     #endregion
+
+    // 🟢 NEW: ฟังก์ชันศูนย์กลางสำหรับอัปเดตสี/Material ตามสถานะปัจจุบัน
+    public void UpdateOutpostVisual()
+    {
+        if (outPosArea == null) return;
+
+        // ดึง MeshRenderer จาก outPosArea มาเปลี่ยน Material
+        MeshRenderer renderer = outPosArea.GetComponent<MeshRenderer>();
+        if (renderer != null)
+        {
+            if (isPlayerOccupy)
+            {
+                if (CapturedMat != null) renderer.material = CapturedMat;
+            }
+            else
+            {
+                if (NonCapturedMat != null) renderer.material = NonCapturedMat;
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[Outpost] ไม่พบ MeshRenderer บน {outPosArea.name} ทำให้ไม่สามารถเปลี่ยน Material ได้");
+        }
+    }
+
+    // 🟢 ปรับปรุงฟังก์ชันเดิมตามที่ต้องการ
+    public void CaptureOutPos()
+    {
+        // สามารถเรียกฟังก์ชันนี้จากภายนอกเพื่อสลับสถานะแบบ Manual ได้เลย
+        UpdateOutpostVisual();
+    }
 }
