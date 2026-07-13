@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class ItemDropBox : MonoBehaviour
 {
@@ -16,12 +17,17 @@ public class ItemDropBox : MonoBehaviour
     public int brokeAttackCount = 3;
     private int attackCount = 0;
     private bool isBroken = false; 
-    private bool isHitCooldown = false; // เปลี่ยนเป็นแบบ private กันบั๊กโดนสคริปต์อื่นแทรกแซง
+    private bool isHitCooldown = false; 
 
-    [Header("Juice / Animation (โค้ดสั่นเด้งถอยหลัง)")]
-    [SerializeField] private float knockbackDistance = 0.25f; // ระยะเด้งหนีคนตี
-    [SerializeField] private float animationDuration = 0.15f; // ความเร็วในการสั่นสะดุ้ง
-    [SerializeField] private Vector3 punchScaleAmount = new Vector3(1.2f, 0.8f, 1.2f); // โดนทุบแล้วแบนลงกระจายออกข้าง
+    [Header("Random Spawn On Start (สุ่มที่ซ่อนตอนเริ่มเกม)")]
+    public bool randomPositionOnStart = true;
+    public float minRandomRadius = 15f;
+    public float maxRandomRadius = 40f;
+
+    [Header("Juice / Animation")]
+    [SerializeField] private float knockbackDistance = 0.25f; 
+    [SerializeField] private float animationDuration = 0.15f; 
+    [SerializeField] private Vector3 punchScaleAmount = new Vector3(1.2f, 0.8f, 1.2f); 
 
     [Header("Drop Settings")]
     [SerializeField] private List<DropableItem> itemList = new List<DropableItem>(); 
@@ -35,18 +41,52 @@ public class ItemDropBox : MonoBehaviour
 
     void Start()
     {
-        originalPosition = transform.position;
         originalScale = transform.localScale;
+
+        // 🟢 ถ้าเปิดตั้งค่าไว้ ให้มันสุ่มตำแหน่งแอบบนพื้นดินตั้งแต่เริ่มโหลดฉากเลย!
+        if (randomPositionOnStart)
+        {
+            RandomizeLocationOnGround();
+        }
+        else
+        {
+            originalPosition = transform.position;
+        }
     }
 
-    // อัปเดต: รับค่าตำแหน่งคนตีเข้ามาเพื่อดันกล่องไปข้างหลังด้วย
+    // 🟢 ฟังก์ชันเลือกที่ซ่อนสุ่มบน NavMesh เงียบๆ ตั้งแต่ต้นเกม
+    private void RandomizeLocationOnGround()
+    {
+        Vector3 centerPos = transform.position; // ใช้จุดที่วางไว้ใน Editor เป็นจุดศูนย์กลางการสุ่ม
+        bool foundValidGround = false;
+
+        for (int attempt = 0; attempt < 50; attempt++)
+        {
+            Vector2 randomCircle = UnityEngine.Random.insideUnitCircle.normalized * UnityEngine.Random.Range(minRandomRadius, maxRandomRadius);
+            Vector3 randomTargetPos = centerPos + new Vector3(randomCircle.x, 0f, randomCircle.y);
+
+            if (NavMesh.SamplePosition(randomTargetPos, out NavMeshHit navHit, 10f, NavMesh.AllAreas))
+            {
+                transform.position = navHit.position;
+                foundValidGround = true;
+                break;
+            }
+        }
+
+        // เซ็ตพิกัดอ้างอิงหลักไว้ตรงจุดที่สุ่มเจอ
+        originalPosition = transform.position;
+
+        if (!foundValidGround)
+        {
+            Debug.LogWarning($"[ItemDropBox] {gameObject.name} สุ่มหาพื้น NavMesh รอบๆ ไม่เจอ จึงใช้ตำแหน่งเดิมใน Editor");
+        }
+    }
+
     public void Broken(Vector3 attackerPosition)
     {
         if (isBroken || isHitCooldown) return;
 
         attackCount++;
-        Debug.Log("hit count : " + attackCount);
-
         if (attackCount >= brokeAttackCount)
         {
             isBroken = true;
@@ -55,7 +95,6 @@ public class ItemDropBox : MonoBehaviour
         }
         else
         {
-            // 🛠️ สั่งรันคูลดาวน์พร้อมทำแอนิเมชันด้วยวิธีที่ถูกต้องผ่าน StartCoroutine
             if (feedbackCoroutine != null) StopCoroutine(feedbackCoroutine);
             feedbackCoroutine = StartCoroutine(HitFeedbackRoutine(attackerPosition));
         }
@@ -63,9 +102,8 @@ public class ItemDropBox : MonoBehaviour
 
     private IEnumerator HitFeedbackRoutine(Vector3 attackerPosition)
     {
-        isHitCooldown = true; // เปิดระบบกันการโจมตีซ้ำซ้อนซ้ำถัง
+        isHitCooldown = true; 
 
-        // คำนวณทิศทางเด้งถอยหลังหนีผู้เล่น
         Vector3 pushDirection = (transform.position - attackerPosition);
         pushDirection.y = 0; 
         pushDirection.Normalize();
@@ -74,36 +112,34 @@ public class ItemDropBox : MonoBehaviour
         Vector3 targetScale = Vector3.Scale(originalScale, punchScaleAmount);
 
         float elapsedTime = 0f;
+        float phase1Duration = animationDuration * 0.4f;
 
-        // ขาไป: ยุบตัวลงและถอยหลังอย่างรวดเร็ว
-        while (elapsedTime < animationDuration * 0.4f)
+        while (elapsedTime < phase1Duration)
         {
-            elapsedTime += Time.deltaTime;
-            float t = elapsedTime / (animationDuration * 0.4f);
+            elapsedTime += Time.unscaledDeltaTime; 
+            float t = elapsedTime / phase1Duration;
             transform.position = Vector3.Lerp(originalPosition, targetPosition, t);
             transform.localScale = Vector3.Lerp(originalScale, targetScale, t);
             yield return null;
         }
 
         elapsedTime = 0f;
+        float phase2Duration = animationDuration * 0.6f;
 
-        // ขากลับ: ดีดเด้งดึ๋งคืนรูปทรงเดิม
-        while (elapsedTime < animationDuration * 0.6f)
+        while (elapsedTime < phase2Duration)
         {
-            elapsedTime += Time.deltaTime;
-            float t = elapsedTime / (animationDuration * 0.6f);
+            elapsedTime += Time.unscaledDeltaTime; 
+            float t = elapsedTime / phase2Duration;
             transform.position = Vector3.Lerp(targetPosition, originalPosition, t);
             transform.localScale = Vector3.Lerp(targetScale, originalScale, t);
             yield return null;
         }
 
-        // รีเซ็ตค่าตำแหน่งกลับสู่สภาวะปกติให้เป๊ะ
         transform.position = originalPosition;
         transform.localScale = originalScale;
 
-        // คูลดาวน์สั้น ๆ ก่อนจะรับดาเมจฮิตถัดไปได้ (ปรับเวลาตรงนี้ได้ตามใจชอบ)
         yield return new WaitForSeconds(0.1f); 
-        isHitCooldown = false; // ปลดล็อกให้พร้อมรับการโจมตีครั้งต่อไป
+        isHitCooldown = false; 
     }
 
     private void DropItems()

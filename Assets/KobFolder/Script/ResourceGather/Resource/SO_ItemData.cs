@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public enum ItemType { Material, Fertilizer, Building, Weapon, Armor,Plant_Product }
+public enum ItemType { Material, Fertilizer, Building, Weapon, Armor, Plant_Product, Seed }
 
 [CreateAssetMenu(fileName = "NewItem", menuName = "Inventory/Item Data")]
 public class SO_ItemData : ScriptableObject
@@ -21,11 +21,15 @@ public class SO_ItemData : ScriptableObject
             // ลอจิกสวมใส่เกราะ/อาวุธของคุณ...
             return true;
         }
-        if(itemType == ItemType.Plant_Product)
+        if (itemType == ItemType.Plant_Product)
         {
             Debug.Log($"[Item] สวมใส่ {itemName} แล้ว!");
         }
-        
+        if (itemType == ItemType.Seed)
+        {
+            Debug.Log($"[Item] สวมใส่ {itemName} แล้ว!");
+        }
+
         Debug.LogWarning($"[Item] {itemName} เป็นวัตถุดิบ ไม่สามารถกดใช้ตรงๆ ได้");
         return false;
     }

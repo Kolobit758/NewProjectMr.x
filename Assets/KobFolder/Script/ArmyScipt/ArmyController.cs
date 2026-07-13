@@ -184,6 +184,10 @@ public class ArmyController : MonoBehaviour
 
         FormationUnitController formationUnitController = spawnedObj.GetComponent<FormationUnitController>();
         formationUnitController.enabled = true;
+        AnimalAIController animalAIController = spawnedObj.GetComponent<AnimalAIController>();
+        animalAIController.enabled = false;
+
+    
 
         // ⚡ เร่งการตอบสนองระบบของตัวทหารให้ จัดทัพไว เดินไวขึ้น
         agent.radius = 0.45f;

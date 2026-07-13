@@ -22,3 +22,4 @@ MonoBehaviour:
   baseAttackDamage: 10
   hpRandomRange: 10
   attackRandomRange: 2
+  uniqueSkill: {fileID: 11400000, guid: cb6618ed6523af749ac4550d59d869e6, type: 2}

@@ -38,6 +38,10 @@ public class KobToolbarUI : MonoBehaviour
     private void Update()
     {
         HandleKeyboardInput();
+        if (Input.GetMouseButtonDown(0))
+        {
+            TriggerItemUsageOfSelectedSlot();
+        }
     }
 
     private void BuildToolbarSlots()
@@ -57,7 +61,7 @@ public class KobToolbarUI : MonoBehaviour
     public void RefreshToolbarDisplay()
     {
         if (ResourceInventory.Instance == null) return;
-        
+
         // 🟢 [FIXED] เช็คและคุมการสร้างสล็อตอย่างปลอดภัยก่อนลงสี
         if (toolbarSlots.Count == 0) BuildToolbarSlots();
 
@@ -128,7 +132,15 @@ public class KobToolbarUI : MonoBehaviour
 
         if (selectedSlot != null && !selectedSlot.IsEmpty && selectedSlot.itemData != null)
         {
-            selectedSlot.itemData.UseItem(GameObject.FindGameObjectWithTag("Player"));
+            // สั่งใช้งานไอเทม (เช่น เรียกพิมพ์เขียว Grid Placement)
+            bool useSuccess = selectedSlot.itemData.UseItem(GameObject.FindGameObjectWithTag("Player"));
+
+            // 🟢 [FIXED ตรงนี้]: ถ้าใช้ไอเทมสำเร็จ หรือมีการหักของออกไปแล้ว
+            // ให้สั่งกระเป๋าใหญ่ตะโกนบอกให้ UI ทุกตัว (ทั้ง Toolbar และ InventoryUI) วาดรูปของใหม่ทันที!
+            if (useSuccess)
+            {
+                ResourceInventory.Instance.NotifyChanged();
+            }
         }
     }
 

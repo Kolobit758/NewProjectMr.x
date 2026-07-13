@@ -161,6 +161,70 @@ public class ResourceInventory : MonoBehaviour
         }
         return false;
     }
+    public void ForceRefreshAllUI()
+    {
+        // 1. ตะโกนบอกอีเวนต์สากลตามเดิม
+        NotifyChanged();
+
+        // 2. [สั่งลัดตรง]: ค้นหา UI ในฉากแล้วสั่งสั่งให้พ่นสีกราฟิกใหม่ทันที
+        KobToolbarUI toolbar = FindAnyObjectByType<KobToolbarUI>();
+        if (toolbar != null) toolbar.RefreshToolbarDisplay();
+
+        KobInventoryUI inventoryUI = FindAnyObjectByType<KobInventoryUI>();
+        if (inventoryUI != null) inventoryUI.RefreshGridDisplay();
+    }
+    // 🟢 [เพิ่มฟังก์ชันที่ 1]: เช็คว่าในกระเป๋ามีไอเทมชื่อนี้ จำนวนเท่านี้จริงไหม
+    public bool HasResource(string itemNameKey, int amountNeeded)
+    {
+        int totalAmount = 0;
+        for (int i = 0; i < inventorySize; i++)
+        {
+            // ดักเช็คว่าช่องไม่ว่าง และชื่อไอเทม (หรือไอดี) ตรงกับปุ๋ยที่หาไหม
+            if (!slots[i].IsEmpty && slots[i].itemData != null)
+            {
+                if (slots[i].itemData.itemName.Contains(itemNameKey) || slots[i].itemData.itemId.Contains(itemNameKey))
+                {
+                    totalAmount += slots[i].amount;
+                    if (totalAmount >= amountNeeded) return true; // เจอครบจำนวนแล้ว ผ่าน!
+                }
+            }
+        }
+        return totalAmount >= amountNeeded;
+    }
+
+    // 🟢 [เพิ่มฟังก์ชันที่ 2]: สั่งค้นหาตามชื่อแล้วหักทรัพยากรออกจากคลังจริงออโต้
+    public void ConsumeResourceByName(string itemNameKey, int amountToConsume)
+    {
+        for (int i = 0; i < inventorySize; i++)
+        {
+            if (!slots[i].IsEmpty && slots[i].itemData != null)
+            {
+                if (slots[i].itemData.itemName.Contains(itemNameKey) || slots[i].itemData.itemId.Contains(itemNameKey))
+                {
+                    if (slots[i].amount >= amountToConsume)
+                    {
+                        slots[i].amount -= amountToConsume;
+                        if (slots[i].amount <= 0) slots[i].Clear();
+
+                        // สั่งอัปเดตระบบคลังและเซฟเกมตามลอจิกมาตรฐานของมึง
+                        NotifyChanged();
+                        if (SaveLoadManager.Instance != null)
+                        {
+                            SaveLoadManager.Instance.MarkInventoryDirty();
+                            SaveLoadManager.Instance.SaveGame();
+                        }
+                        return;
+                    }
+                    else
+                    {
+                        amountToConsume -= slots[i].amount;
+                        slots[i].Clear();
+                    }
+                }
+            }
+        }
+        NotifyChanged();
+    }
 
     #region 🟢 ประตูระบายข้อมูลสำหรับเซฟโหลดแบบรวมศูนย์ (Centralized Bridge)
 

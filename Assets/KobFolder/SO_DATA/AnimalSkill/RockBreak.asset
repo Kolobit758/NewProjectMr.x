@@ -9,14 +9,20 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a4d30d7a0ec88af4d99e30e45a68d563, type: 3}
+  m_Script: {fileID: 11500000, guid: d0e94d18137264a4ca482a67f8188cc7, type: 3}
   m_Name: RockBreak
   m_EditorClassIdentifier: 
-  skillId: 
-  skillName: 
+  skillId: RockBreak
+  skillName: RockBreak
   description: 
   skillIcon: {fileID: 0}
-  skillType: 0
+  skillType: 2
   cooldown: 5
-  dashForce: 15
-  breakRadius: 2
+  windUpDistance: 1.5
+  windUpDuration: 0.5
+  dashSpeed: 25
+  maxDashDuration: 0.4
+  breakableLayer:
+    serializedVersion: 2
+    m_Bits: 512
+  breakRadius: 2.5

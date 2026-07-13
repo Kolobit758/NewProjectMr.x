@@ -7,6 +7,9 @@ TagManager:
   - Enemy
   - Unit
   - Box
+  - TeamManageHome
+  - TrackingObject
+  - Branch
   layers:
   - Default
   - TransparentFX
@@ -17,8 +20,8 @@ TagManager:
   - Unit
   - AttackAbleLayer
   - GroundLayer
-  - 
-  - 
+  - BrakeAbleLayer
+  - FarmPlotLayer
   - 
   - 
   - 

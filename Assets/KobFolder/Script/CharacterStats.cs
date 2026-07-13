@@ -74,7 +74,7 @@ public class CharacterStats : MonoBehaviour
     public int[] GetPrivateData()
     {
         int[] privateData = { maxHP, maxMana, maxStamina };
-        Debug.Log("maxHP : " + maxHP + " maxMana :" + maxMana + " maxStamina : " + maxStamina);
+        // Debug.Log("maxHP : " + maxHP + " maxMana :" + maxMana + " maxStamina : " + maxStamina);
         return privateData;
     }
 
