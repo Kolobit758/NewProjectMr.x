@@ -44,9 +44,11 @@ public class CharacterStats : MonoBehaviour
         OnHPChanged?.Invoke();
 
         // เรียกใช้ระบบสั่นสะดุ้งถ้าวัตถุนั้นมีคอมโพเนนต์นี้ติดอยู่
+        // ใน CharacterStats.cs ตรงฟังก์ชัน TakeDamage ให้แก้บรรทัดนี้:
         if (TryGetComponent<HitFeedback>(out HitFeedback feedback))
         {
-            feedback.PlayHitFeedback(attackerPosition);
+            // เปลี่ยนจาก feedback.PlayHitFeedback(attackerPosition); เป็นเวอร์ชันนี้
+            feedback.PlayHitFeedback(attackerPosition, amount);
         }
 
         if (currentHP <= 0)
@@ -82,7 +84,7 @@ public class CharacterStats : MonoBehaviour
     [ContextMenu("TumDamage")]
     public void TumDamage()
     {
-        TakeDamage(100,gameObject.transform.position);
+        TakeDamage(100, gameObject.transform.position);
     }
     [ContextMenu("UseAllStamina")]
     public void StaminaUsed()

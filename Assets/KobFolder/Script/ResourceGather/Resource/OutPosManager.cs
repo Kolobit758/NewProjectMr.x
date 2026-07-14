@@ -32,6 +32,28 @@ public class OutPosManager : MonoBehaviour
     private void Start()
     {
         UpdateOutpostVisual();
+
+        if (enemies != null)
+        {
+            foreach (GameObject enemy in enemies)
+            {
+                if (enemy == null) continue;
+
+                // 🟢 เปลี่ยนจาก GetComponent เป็น GetComponentInChildren
+                // คราวนี้ต่อให้อยู่ในวัตถุลูกขั่นไหน มันก็จะมุดไปหาจนเจอครับ
+                EnemyBase enemyScript = enemy.GetComponentInChildren<EnemyBase>();
+
+                if (enemyScript != null)
+                {
+                    enemyScript.myOutPos = this;
+                    Debug.Log($"[Outpost] 🟢 เชื่อมต่อกับ {enemy.name} (ตรวจพบสคริปต์ที่วัตถุลูก) สำเร็จ!");
+                }
+                else
+                {
+                    Debug.LogError($"[Outpost] 🔴 หา EnemyBase บน {enemy.name} ไม่เจอ ลองเช็คดูว่าใส่สคริปต์ Melee หรือ Ranged ไว้หรือยังนะคร้าบ");
+                }
+            }
+        }
     }
 
     #region Resource
@@ -184,5 +206,12 @@ public class OutPosManager : MonoBehaviour
     {
         // สามารถเรียกฟังก์ชันนี้จากภายนอกเพื่อสลับสถานะแบบ Manual ได้เลย
         UpdateOutpostVisual();
+    }
+
+    public void OnEnemyDie()
+    {
+        enemies.RemoveAll(enemy => enemy == null);
+
+        TryStartCapture();
     }
 }

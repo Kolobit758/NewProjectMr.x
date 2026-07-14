@@ -645,6 +645,7 @@ MonoBehaviour:
   animationDuration: 0.15
   punchScaleAmount: {x: 1.2, y: 0.8, z: 1.2}
   hitCooldown: 0.1
+  damagePopupPrefab: {fileID: 0}
 --- !u!114 &990748965956586623
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -689,9 +690,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: feb32db4a01edf34f99c23aa15363d47, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  defaultNature: 1
+  defaultNature: 2
   alertRadius: 7
-  playerTransform: {fileID: 0}
+  playerTransform: {fileID: 1902916007425021342, guid: 2431e7b38b8155942a74f066e92adcb2, type: 3}
 --- !u!1 &3811302571009450745
 GameObject:
   m_ObjectHideFlags: 0

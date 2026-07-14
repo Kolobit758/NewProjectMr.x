@@ -190,7 +190,7 @@ Transform:
   m_GameObject: {fileID: 555247308177013518}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 74.8, y: 0, z: 36}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -209,16 +209,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SkySpawner
   unitList:
-  - unitPrefab: {fileID: 1973227500574281712, guid: a272e94020d3a9b4d95f4ccb828caa50, type: 3}
+  - unitPrefab: {fileID: 4213473739168484922, guid: 4fc699ebebba7834eb96f503d0ac61b9, type: 3}
     spawnChance: 100
   - unitPrefab: {fileID: 3611769876490001236, guid: 9818ff3dfb926274688f41b76437948c, type: 3}
     spawnChance: 100
+  - unitPrefab: {fileID: 1808418143457774474, guid: 3a1891400bb604c4b81eb22cd0520193, type: 3}
+    spawnChance: 54
   groundLayer:
     serializedVersion: 2
-    m_Bits: 64
-  minSpawnCount: 5
-  maxSpawnCount: 10
-  spawnRadius: 100
+    m_Bits: 320
+  minSpawnCount: 40
+  maxSpawnCount: 50
+  spawnRadius: 200
   raycastHeight: 50
 --- !u!1 &582772032114110702
 GameObject:
@@ -639,8 +641,9 @@ GameObject:
   - component: {fileID: 3747569917876018587}
   - component: {fileID: 1741410752931506954}
   - component: {fileID: 6662683175756749148}
+  - component: {fileID: 1888246464104290197}
   m_Layer: 5
-  m_Name: Canvas
+  m_Name: PlayerUI
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -729,6 +732,21 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &1888246464104290197
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1096185222728921661}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62c029873d4ede34aa64b402f4e501a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerManager: {fileID: 7807260516211108791}
+  hpRadialFill: {fileID: 8622911133190957291}
+  staminaRadialFill: {fileID: 5345850295187138441}
 --- !u!1 &1243818355136975208
 GameObject:
   m_ObjectHideFlags: 0
@@ -983,7 +1001,7 @@ Transform:
   m_GameObject: {fileID: 1499853057257596105}
   serializedVersion: 2
   m_LocalRotation: {x: 0.5859836, y: 0.0720976, z: -0.05245574, w: 0.8054028}
-  m_LocalPosition: {x: -133.94498, y: 23.50001, z: -156.24475}
+  m_LocalPosition: {x: -144.24498, y: 23.50001, z: -173.54477}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1383,7 +1401,7 @@ GameObject:
   - component: {fileID: 3696753665902300590}
   - component: {fileID: 5345850295187138441}
   m_Layer: 5
-  m_Name: PlayerHPBar (1)
+  m_Name: StaminaBar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1441,7 +1459,7 @@ MonoBehaviour:
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
-  m_FillAmount: 0.79
+  m_FillAmount: 1
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
@@ -1587,7 +1605,7 @@ Transform:
   m_GameObject: {fileID: 3227098341227729209}
   serializedVersion: 2
   m_LocalRotation: {x: 0.5859837, y: 0.07209765, z: -0.052455787, w: 0.80540276}
-  m_LocalPosition: {x: -133.94498, y: 23.50001, z: -156.24475}
+  m_LocalPosition: {x: -144.24498, y: 23.50001, z: -173.54477}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2066,7 +2084,7 @@ GameObject:
   - component: {fileID: 1974907217818424858}
   - component: {fileID: 1302475748893698077}
   - component: {fileID: 5259603909158873706}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: PlayerPrefab
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -2082,7 +2100,7 @@ Transform:
   m_GameObject: {fileID: 3980508916180277875}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -20.5, y: 0, z: -273.9}
+  m_LocalPosition: {x: -30.8, y: 0, z: -291.2}
   m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2148,6 +2166,7 @@ MonoBehaviour:
   animationDuration: 0.15
   punchScaleAmount: {x: 1.2, y: 0.8, z: 1.2}
   hitCooldown: 0.1
+  damagePopupPrefab: {fileID: 4097727708666250476, guid: 2431e7b38b8155942a74f066e92adcb2, type: 3}
 --- !u!54 &1047841445875150784
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -2205,6 +2224,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 327d3f118ccefcf4d83c11f18bfd50b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerManager
+  staminaRegenRate: 15
+  regenDelay: 1
 --- !u!114 &5558624384266357728
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2520,7 +2541,7 @@ GameObject:
   - component: {fileID: 1210681035476040342}
   - component: {fileID: 8622911133190957291}
   m_Layer: 5
-  m_Name: Image
+  m_Name: HPbar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2567,7 +2588,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.86415094, g: 0.13532923, b: 0.24146745, a: 1}
+  m_Color: {r: 1, g: 0.03671081, b: 0, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -3432,7 +3453,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 2168
+  m_VersionIndex: 2177
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -3566,7 +3587,7 @@ MonoBehaviour:
   m_OverrideVoxelSize: 0
   m_VoxelSize: 0.16666667
   m_MinRegionArea: 2
-  m_NavMeshData: {fileID: 23800000, guid: e741636ced8510a4492390d45e11a05d, type: 2}
+  m_NavMeshData: {fileID: 23800000, guid: 03d13311606ecfc4fb4aaf38ea080766, type: 2}
   m_BuildHeightMesh: 0
 --- !u!1 &5097819312069091052
 GameObject:

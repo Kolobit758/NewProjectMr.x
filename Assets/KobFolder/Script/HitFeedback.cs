@@ -9,23 +9,18 @@ public class HitFeedback : MonoBehaviour
     [SerializeField] private Vector3 punchScaleAmount = new Vector3(1.2f, 0.8f, 1.2f);
     [SerializeField] private float hitCooldown = 0.1f;
 
+    [Header("Ragnarok Damage Popup")]
+    [SerializeField] private GameObject damagePopupPrefab; // ลาก Prefab ตัวเลขมาใส่ตรงนี้
+
     private Vector3 originalPosition;
     private Vector3 originalScale;
     private bool isHitCooldown = false;
     private Coroutine feedbackCoroutine;
-
-    // ลิงก์ไปยังสคริปต์สเตตัส (ถ้ามี)
     private CharacterStats characterStats;
 
     void Awake()
     {
-        // แอบส่องดูว่าในตัวนี้มีสคริปต์สเตตัสไหม ถ้ามีจะได้ผูกเหตุการณ์อัตโนมัติ
         characterStats = GetComponent<CharacterStats>();
-    }
-
-    void OnEnable()
-    {
-        // หากต้องการผูกกับตัวเปิดรับดาเมจของระบบอื่น หรือจะเรียกผ่านฟังก์ชันตรงๆ ก็ได้
     }
 
     void Start()
@@ -34,23 +29,39 @@ public class HitFeedback : MonoBehaviour
         originalScale = transform.localScale;
     }
 
-    // ฟังก์ชันหลักที่สั่งให้สั่นสะดุ้ง เรียกใช้จากภายนอกได้เลย
-    public void PlayHitFeedback(Vector3 attackerPosition)
+    // เพิ่มพารามิเตอร์ int damageAmount เข้ามา
+    public void PlayHitFeedback(Vector3 attackerPosition, int damageAmount)
     {
+        // 1. สร้างตัวเลขดาเมจทันที (ต่อให้ติดคูลดาวน์สั่นสะดุ้ง แต่ตัวเลขต้องเด้งทุกครั้งที่โดนตี!)
+        SpawnDamagePopup(damageAmount);
+
         if (isHitCooldown) return;
 
-        // อัปเดตตำแหน่งเริ่มต้นล่าสุด (เผื่อวัตถุมีการเคลื่อนที่ไปที่อื่นแล้ว)
         originalPosition = transform.position;
 
         if (feedbackCoroutine != null) StopCoroutine(feedbackCoroutine);
         feedbackCoroutine = StartCoroutine(HitFeedbackRoutine(attackerPosition));
     }
 
+    // ฟังก์ชันสร้างตัวเลขลอย
+    private void SpawnDamagePopup(int damage)
+    {
+        if (damagePopupPrefab == null) return;
+
+        // สร้างตัวเลขขึ้นมาเหนือนิ้ว/หัวของโมเดลนิดหน่อย
+        Vector3 spawnPos = transform.position + Vector3.up * 2f; 
+        GameObject popupObj = Instantiate(damagePopupPrefab, spawnPos, Quaternion.identity);
+        
+        if (popupObj.TryGetComponent<DamagePopup>(out var popup))
+        {
+            popup.Setup(damage);
+        }
+    }
+
     private IEnumerator HitFeedbackRoutine(Vector3 attackerPosition)
     {
         isHitCooldown = true;
 
-        // คำนวณทิศทางเด้งถอยหลัง
         Vector3 pushDirection = (transform.position - attackerPosition);
         pushDirection.y = 0; 
         pushDirection.Normalize();
@@ -60,7 +71,6 @@ public class HitFeedback : MonoBehaviour
 
         float elapsedTime = 0f;
 
-        // ขาไป: ยุบตัวและถอยหลัง
         while (elapsedTime < animationDuration * 0.4f)
         {
             elapsedTime += Time.deltaTime;
@@ -72,7 +82,6 @@ public class HitFeedback : MonoBehaviour
 
         elapsedTime = 0f;
 
-        // ขากลับ: คืนรูปทรงและตำแหน่งเดิม
         while (elapsedTime < animationDuration * 0.6f)
         {
             elapsedTime += Time.deltaTime;
