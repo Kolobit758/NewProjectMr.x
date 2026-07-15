@@ -116,6 +116,31 @@ public class OutpostVaultManager : MonoBehaviour
     public Dictionary<string, int> GetVaultInventoryData() => vaultInventory;
     public void SetVaultInventoryData(Dictionary<string, int> loadedData) => vaultInventory = loadedData;
     public int GetVaultResourceCount(SO_ItemData item) => (item != null && vaultInventory.ContainsKey(item.itemId)) ? vaultInventory[item.itemId] : 0;
+    // ใน OutpostVaultManager.cs
+    public void FeedOutpostFromInventory(string outpostId, SO_ItemData foodItem, int amountToFeed)
+    {
+        // 1. เช็คว่ามีอาหารในกระเป๋าผู้เล่นจริงมั้ย
+        if (ResourceInventory.Instance != null && ResourceInventory.Instance.HasResource(foodItem.itemId,amountToFeed))
+        {
+            // 2. ลบอาหารออกจากกระเป๋าผู้เล่น
+            ResourceInventory.Instance.ConsumeResource(foodItem, amountToFeed);
+
+            // 3. ป้อนเข้าค่าย (คำนวณค่า Hunger ตามจำนวนอาหาร)
+            OutpostDataSO outpost = allOutpostsInWorld.Find(o => o.outpostID == outpostId);
+            if (outpost != null)
+            {
+                float foodValue = amountToFeed * 5f; // สมมติ 1 อาหาร = 5 หน่วยความหิว
+                outpost.FeedOutpost(foodValue, 0, 0); // เรียกฟังก์ชันป้อนเดิมของมึง
+
+                Debug.Log($"[Vault] 🥗 ป้อน {foodItem.itemName} ให้ค่าย {outpost.outpostName} เรียบร้อย!");
+                SaveLoadManager.Instance.SaveGame(true);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("❌ อาหารในกระเป๋าไม่พอสัด!");
+        }
+    }
 
     #region Set Camp
     /// <summary>

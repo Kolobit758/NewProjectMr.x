@@ -13,7 +13,18 @@ public class OutPosManager : MonoBehaviour
     public bool isPlayerOccupy
     {
         get => outpostData != null ? outpostData.isCaptured : false;
-        set { if (outpostData != null) outpostData.isCaptured = value; }
+        set
+        {
+            if (outpostData != null)
+            {
+                outpostData.isCaptured = value;
+                // 🟢 เพิ่มบรรทัดนี้เข้าไป! ให้มันเรียกอัปเดตหน้าตาตัวเองทันทีที่โดนเปลี่ยนค่า
+                UpdateOutpostVisual();
+
+                // ถ้ามึงอยากให้มันเคลียร์ศัตรู หรือทำอะไรตอนถูกยึดก็สั่งตรงนี้ได้เลย
+                if (value == true) SetUpGame();
+            }
+        }
     }
 
     public float captureTime = 5f;
@@ -231,7 +242,7 @@ public class OutPosManager : MonoBehaviour
         UpdateOutpostVisual();
     }
 
-    
+
     public void OpenOutpostGarrisonUI()
     {
         if (!isPlayerOccupy)

@@ -4,14 +4,34 @@ using System.Collections.Generic;
 public class OutpostRaidSystem : MonoBehaviour
 {
     [Header("Raid Configuration")]
-    public float raidCheckInterval = 30f; 
+    public float raidCheckInterval = 30f;
     private float raidTimer = 0f;
-    [Range(0f, 100f)] public float raidChance = 25f; 
+    [Range(0f, 100f)] public float raidChance = 25f;
+    [Header("Bandit Variety")]
+    public List<GameObject> banditPrefabs = new List<GameObject>(); // ลากโจรหลายแบบมาใส่ตรงนี้
+    // ใน OutpostRaidSystem.cs
+    private void Start()
+    {
+        // สมัครสมาชิกเพื่อฟัง Event กลางวันกลางคืน (วิธีนี้โค้ดจะวิ่งแค่ตอนเวลาเปลี่ยน ไม่ต้องเช็คใน Update ตลอดเวลา)
+        if (DayNightManager.Instance != null)
+        {
+            DayNightManager.Instance.OnTimeChanged += HandleTimeChanged;
+        }
+    }
+
+    private void HandleTimeChanged(bool isNight)
+    {
+        if (isNight)
+        {
+            Debug.Log("🌙 กลางคืนแล้ว! โจรเริ่มสุ่มบุกค่าย...");
+        }
+    }
+
 
     void Update()
     {
         // สุ่มบุกตอนกลางคืนตามระเบียบ
-        if (MotherTreeController.Instance != null && MotherTreeController.Instance.isNightTime)
+        if (DayNightManager.Instance != null && DayNightManager.Instance.isNightTime)
         {
             raidTimer += Time.deltaTime;
             if (raidTimer >= raidCheckInterval)
@@ -41,16 +61,18 @@ public class OutpostRaidSystem : MonoBehaviour
     {
         if (OutpostVaultManager.Instance != null && OutpostVaultManager.Instance.allOutpostsInWorld.Count > 0)
         {
-            ResolveBattle(OutpostVaultManager.Instance.allOutpostsInWorld[0]);
+            ResolveBattle(OutpostVaultManager.Instance.allOutpostsInWorld[1]);
         }
     }
 
     private void ResolveBattle(OutpostDataSO outpost)
     {
-        Debug.LogWarning($"⚔🚨 [EVENT]: กองโจรโจมตี [{outpost.outpostName}] เบื้องหลัง!");
+        // 🟢 สุ่มเลือกโจรแบบที่จะบุกรอบนี้ออกมา 1 แบบก่อน
+        GameObject chosenBanditPrefab = banditPrefabs[Random.Range(0, banditPrefabs.Count)];
 
+        // ดึงพลังโจมตีจากตัวที่สุ่มได้ (หรือใช้ค่าสุ่มถ้าไม่มี Stat ในตัว Prefab)
         float banditPower = Random.Range(30f, 80f);
-        float playerPower = outpost.GetTotalGarrisonAttack(); // ดึงพลังทหารจริง + ค่าหิวจาก SO
+        float playerPower = outpost.GetTotalGarrisonAttack();
 
         playerPower *= Random.Range(0.8f, 1.2f);
         banditPower *= Random.Range(0.8f, 1.2f);
@@ -72,15 +94,27 @@ public class OutpostRaidSystem : MonoBehaviour
         }
         else
         {
-            // ค่ายแตก! โจรยึดคืน ล้างบางทหาร
+            // 💥 ค่ายแตก!
             outpost.garrisonUnits.Clear();
             outpost.isCaptured = false;
+
+            OutPosManager outPosManager = FindOutpostManagerInScene(outpost.outpostID);
+            if (outPosManager != null)
+            {
+                outPosManager.isPlayerOccupy = false;
+                // 🟢 ส่ง chosenBanditPrefab เข้าไปที่ฟังก์ชันเสกโจร
+                SpawnBanditsAtOutpost(outpost, outPosManager);
+            }
+            else
+            {
+                outpost.isCaptured = false;
+            }
 
             if (OutpostVaultManager.Instance != null)
             {
                 OutpostVaultManager.Instance.capturedOutpostIDs.Remove(outpost.outpostID);
             }
-            Debug.LogError($"💥 [ค่ายแตก!]: โจรบุกยึด [{outpost.outpostName}] คืนสำเร็จ ส่วยแร่หยุดทำงาน!");
+            Debug.LogError($"💥 [ค่ายแตก!]: โจรยึด [{outpost.outpostName}] คืนสำเร็จ!");
         }
 
         // 💾 บรรทัดไม้ตาย: คำนวณรบเสร็จ ทหารตายหรือค่ายแตก สั่งบันทึกไฟล์เซฟทับทันที!
@@ -102,4 +136,37 @@ public class OutpostRaidSystem : MonoBehaviour
         OutPosManager[] managers = FindObjectsByType<OutPosManager>(FindObjectsSortMode.None);
         return System.Array.Find(managers, m => m.outpostData != null && m.outpostData.outpostID == id);
     }
+
+    #region After thief capture outpos
+
+    private void SpawnBanditsAtOutpost(OutpostDataSO outpost, OutPosManager sceneManager)
+    {
+        // 🟢 ไม่ต้องรับ banditPrefab เข้ามาแล้ว เพราะเราจะสุ่มใหม่ทุกตัวที่เสก!
+        if (banditPrefabs == null || banditPrefabs.Count == 0) return;
+
+        int numberOfBandits = Random.Range(2, 5);
+
+        for (int i = 0; i < numberOfBandits; i++)
+        {
+            // 🟢 สุ่มเลือกโจรตัวใหม่ "ทุกครั้ง" ในลูปนี้เลย!
+            GameObject randomBanditPrefab = banditPrefabs[Random.Range(0, banditPrefabs.Count)];
+
+            Vector3 spawnPos = (sceneManager.outPosArea != null)
+                               ? sceneManager.outPosArea.transform.position
+                               : sceneManager.transform.position;
+
+            Vector3 randomPos = spawnPos + new Vector3(Random.Range(-5f, 5f), 0, Random.Range(-5f, 5f));
+
+            GameObject bandit = Instantiate(randomBanditPrefab, randomPos, Quaternion.identity);
+
+            EnemyBase enemyScript = bandit.GetComponentInChildren<EnemyBase>();
+            if (enemyScript != null)
+            {
+                enemyScript.myOutPos = sceneManager;
+                sceneManager.AddEnemy(bandit);
+            }
+        }
+        Debug.Log($"💀 [EVENT]: กองโจรผสม {numberOfBandits} ตัวยึดค่าย [{outpost.outpostName}] สำเร็จ!");
+    }
+    #endregion
 }

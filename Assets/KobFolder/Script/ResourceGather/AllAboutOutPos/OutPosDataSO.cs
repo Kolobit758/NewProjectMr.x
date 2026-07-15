@@ -41,26 +41,16 @@ public class OutpostDataSO : ScriptableObject
     /// <summary>
     /// ⚔️ คำนวณพลังโจมตีสุทธิของค่ายย่อย (รวมดาเมจยูนิตทุกตัว + บัฟอาหาร + ดักสเตตัสความหิว)
     /// </summary>
-    public float GetTotalGarrisonAttack()
-    {
-        float totalAttack = 0f;
-
-        // วนลูปบวกพลังโจมตีจาก UnitInstance ทุกตัวที่เฝ้าอยู่จริง
-        foreach (var unit in garrisonUnits)
-        {
-            if (unit != null)
-            {
-                totalAttack += unit.attackDamage;
-            }
-        }
-
-        // 🍖 ลอจิกบริหารความหิว: ถ้ายูนิตอดอยากจนหิวเหลือ 0 พลังรบสุทธิจะดิ่งฮวบเหลือแค่ 50% ทันที!
-        float hungerFactor = hungerLevel / 100f;
-        if (hungerLevel <= 0)
-        {
-            hungerFactor = 0.5f; 
-        }
-
-        return totalAttack * attackBuffMultiplier * hungerFactor;
-    }
+public float GetTotalGarrisonAttack()
+{
+    float baseAtk = 0;
+    foreach(var unit in garrisonUnits) baseAtk += unit.attackDamage;
+    
+    // 🟢 หิวโซ = พลังเหลือแค่ 20%
+    if (hungerLevel <= 0) return baseAtk * 0.2f; 
+    // 🟢 หิวปานกลาง = พลังเหลือ 60%
+    if (hungerLevel < 30) return baseAtk * 0.6f;
+    
+    return baseAtk;
+}
 }
