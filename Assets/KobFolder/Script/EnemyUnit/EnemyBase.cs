@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 
 public enum EnemyState { Idle, Chasing, Attacking, Cooldown, Dead }
@@ -40,13 +41,8 @@ public abstract class EnemyBase : MonoBehaviour
             {
                 currentState = EnemyState.Dead;
 
-                if (myOutPos != null)
-                {
-                    // 🟢 เปลี่ยนจาก gameObject เป็น transform.root.gameObject
-                    // เพื่อส่งวัตถุตัวพ่อสุดที่อยู่ในลิสต์ไปลบออก ฐานจะได้รู้ว่าตัวนี้ตายแล้วจริงๆ
-                    myOutPos.RemoveEnemy(transform.root.gameObject);
-                    Destroy(gameObject);
-                }
+                // 🔥 เปลี่ยนมาใช้ Coroutine เพื่อจัดระเบียบลำดับการตายให้จบหล่อๆ ท้ายเฟรม
+                StartCoroutine(HandleDeathRoutine());
             }
             return;
         }
@@ -55,6 +51,20 @@ public abstract class EnemyBase : MonoBehaviour
         UpdateStateMachine();
     }
 
+    private IEnumerator HandleDeathRoutine()
+    {
+        // 1. ถอนชื่อออกจากระบบค่ายก่อน
+        if (myOutPos != null)
+        {
+            myOutPos.RemoveEnemy(gameObject);
+        }
+
+        // 2. ⏳ ไม้ตาย: สั่งให้โค้ดหยุดรอจนกว่ากวาดล้างลูป Update ของวัตถุทุกตัวในเฟรมนี้เสร็จสิ้นก่อน!
+        yield return new WaitForEndOfFrame();
+
+        // 3. 💥 พ้นเฟรมไปแล้ว ไม่มีใครเรียกหาเราแล้ว สั่งทำลายตัวเองทิ้งแบบไร้เออร์เรอร์รบกวน!
+        Destroy(gameObject);
+    }
     protected void FindTarget()
     {
         if (target != null)

@@ -14,6 +14,7 @@ public class SkySpawner : MonoBehaviour
 
     [Header("Spawn Settings")]
     [SerializeField] private List<SpawnableUnitData> unitList = new List<SpawnableUnitData>();
+    [SerializeField] private string unitDefaultLayer;
     [SerializeField] private LayerMask groundLayer;
 
     [Header("Quantity Settings")]
@@ -94,15 +95,21 @@ public class SkySpawner : MonoBehaviour
             // ตรวจสอบพื้นที่บน NavMesh สีฟ้า
             if (NavMesh.SamplePosition(desiredSpawnPos, out NavMeshHit navHit, spawnRadius * 2f, NavMesh.AllAreas))
             {
-                Instantiate(selectedPrefab, navHit.position, Quaternion.identity);
+                GameObject newAnimal = Instantiate(selectedPrefab, navHit.position, Quaternion.identity);
+                newAnimal.tag = "Enemy";
+                newAnimal.gameObject.layer = LayerMask.NameToLayer(unitDefaultLayer);
+
             }
             else
             {
                 // ถ้าสุ่มไปนอก NavMesh ให้เสกตำแหน่งดิบตรงนั้นเลย สัตว์จะได้เกิดครบถ้วนตามจำนวน
-                Instantiate(selectedPrefab, desiredSpawnPos, Quaternion.identity);
+                GameObject newAnimal = Instantiate(selectedPrefab, desiredSpawnPos, Quaternion.identity);
+                newAnimal.tag = "Enemy";
+                newAnimal.gameObject.layer = LayerMask.NameToLayer(unitDefaultLayer);
             }
         }
     }
+
 
     private GameObject GetRandomUnitPrefab()
     {
