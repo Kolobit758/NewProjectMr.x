@@ -401,6 +401,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a0fb23ee6b3140e4bb06f5f785f1b556, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  role: 2
+  tacticalOffset: {x: 0, y: 0, z: 0}
   detectRadius: 15
   targetLayers:
     serializedVersion: 2

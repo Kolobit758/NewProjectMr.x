@@ -19,7 +19,7 @@ public class CropPlot : MonoBehaviour
     private bool isWatered = false;
 
     public bool IsEmpty => currentCrop == null;
-    public bool IsWatered => IsWatered;
+    public bool IsWatered => isWatered;
 
     private FertilizerType currentFertilizer = FertilizerType.Basic;
     public FertilizerType CurrentFertilizer => currentFertilizer;
@@ -69,6 +69,7 @@ public class CropPlot : MonoBehaviour
         if (!IsEmpty)
         {
             Debug.Log("This plot already has a crop.");
+            ShowHUDPopup("Plot is not empty", "Harvest the current crop before planting.");
             return;
         }
 
@@ -93,12 +94,14 @@ public class CropPlot : MonoBehaviour
         if (IsEmpty)
         {
             Debug.Log("Cannot water. this plot is empty");
+            ShowHUDPopup("Plot is empty", "Plant Pepper before watering.");
             return;
         }
 
         if (isWatered)
         {
             Debug.Log("this plot is already wated.");
+            ShowHUDPopup("Already watered", "This crop has already been watered.");
             return;
         }
 
@@ -113,6 +116,7 @@ public class CropPlot : MonoBehaviour
         if (IsEmpty)
         {
             Debug.Log("Plot is Empty");
+            ShowHUDPopup("Plot is empty", "Plant and grow Pepper before harvesting.");
             return;
         }
 
@@ -127,6 +131,7 @@ public class CropPlot : MonoBehaviour
         if (!pepperCrop.IsReady)
         {
             Debug.Log("Pepper is not ready yet");
+            ShowHUDPopup("Crop is not ready", "Wait for Pepper to finish growing.");
             return;
         }
 
@@ -145,7 +150,7 @@ public class CropPlot : MonoBehaviour
             if (isFlamePepper)
             {
                 InventoryManager.Instance.AddFlamePepper(1);
-                InventoryManager.Instance.ShowDiscoveryMessage("Special Crop Discoverd: Flame Pepper!");
+                InventoryManager.Instance.ShowDiscoveryMessage("Special Crop Discovered!");
 
                 Debug.Log("Special Crop Harvested: Flame pepper!");
             }
@@ -205,6 +210,7 @@ public class CropPlot : MonoBehaviour
         if (IsEmpty)
         {
             Debug.Log("Cannot fertilize. this plot is empty.");
+            ShowHUDPopup("Plot is empty", "Plant Pepper before applying fertilizer.");
             return;
         }
 
@@ -221,5 +227,13 @@ public class CropPlot : MonoBehaviour
         bool hasAshFertilizer = currentFertilizer == FertilizerType.Ash;
         bool hasLowWater = !isWatered;
         return hasMastery && hasHeatCondition && hasAshFertilizer && hasLowWater;
+    }
+
+    private void ShowHUDPopup(string title, string detail)
+    {
+        if (HUDController.Instance != null)
+        {
+            HUDController.Instance.ShowPopup(title, detail);
+        }
     }
 }

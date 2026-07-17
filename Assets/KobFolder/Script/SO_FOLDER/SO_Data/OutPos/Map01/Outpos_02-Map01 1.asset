@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   outpostID: outpos_02-Map01
   outpostName: "\u0E04\u0E48\u0E32\u0E22\u0E42\u0E08\u0E23\u0E17\u0E34\u0E28\u0E43\u0E15\u0E49"
-  isCaptured: 1
+  isCaptured: 0
   resourceToProduce: {fileID: 11400000, guid: b5654b1bef8f6064ba2e82ea93d9778e, type: 2}
   amountPerTick: 5
   garrisonUnits: []
-  hungerLevel: 79.92326
+  hungerLevel: 96.77974
   hungerDecreaseRate: 1.5
   attackBuffMultiplier: 1
   defenseBuffMultiplier: 1

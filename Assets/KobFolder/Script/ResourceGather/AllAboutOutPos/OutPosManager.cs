@@ -2,8 +2,21 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[System.Serializable]
+public class BanditSquadConfig
+{
+    public int tankCount = 1;
+    public int meleeCount = 2;
+    public int rangedCount = 1;
+}
+
 public class OutPosManager : MonoBehaviour
 {
+    [Header("Squad Setup")]
+    public BanditSquadConfig squadConfig; // กำหนดจำนวนใน Inspector ได้เลย!
+    public List<GameObject> tankPrefabs;
+    public List<GameObject> meleePrefabs;
+    public List<GameObject> rangedPrefabs;
     [Header("Data Link")]
     // 🟢 NEW: ลากก้อน SO ประจำค่ายนี้มาแปะตรงนี้ (มันจะทำหน้าที่ถือข้อมูลแทนตัวแปรลอย ๆ)
     public OutpostDataSO outpostData;
@@ -73,6 +86,8 @@ public class OutPosManager : MonoBehaviour
 
     public void SetUpGame()
     {
+        SpawnBanditsByConfig();
+
         if (isPlayerOccupy)
         {
             foreach (GameObject enemy in enemies)
@@ -81,7 +96,10 @@ public class OutPosManager : MonoBehaviour
             }
 
             enemies.RemoveAll(e => e == null);
+
         }
+
+
     }
 
     #region Resource
@@ -194,23 +212,6 @@ public class OutPosManager : MonoBehaviour
         if (!enemies.Contains(enemy)) enemies.Add(enemy);
     }
 
-    public void RemoveEnemy(GameObject enemy)
-    {
-        // 1. ลบตัวที่ส่งมาออกจากลิสต์
-        if (enemies.Contains(enemy))
-        {
-            enemies.Remove(enemy);
-        }
-
-        // 🟢 ไม้ตายทำความสะอาด: สแกนกวาดล้างพวก Missing หรือ Null ออกไปให้สิ้นซาก!
-        enemies.RemoveAll(enemy => enemy == null);
-
-        // 2. ถ้าศัตรูตายเกลี้ยงหมดค่ายแล้วจริงๆ ให้เริ่มลูปชิงพื้นที่ทันที
-        if (enemies.Count <= 0)
-        {
-            TryStartCapture();
-        }
-    }
 
     public void OnEnemyDie()
     {
@@ -261,4 +262,83 @@ public class OutPosManager : MonoBehaviour
             Debug.LogError("🔴 หา OutpostUIController ไม่เจอในฉาก! อย่าลืมสร้าง UI Canvas มารองรับนะมึง");
         }
     }
+
+    #region Tactaic Enemy
+    public void SpawnBanditsByConfig()
+    {
+        SpawnSpecificBandits(EnemyRole.Tank, squadConfig.tankCount, tankPrefabs);
+        SpawnSpecificBandits(EnemyRole.Melee, squadConfig.meleeCount, meleePrefabs);
+        SpawnSpecificBandits(EnemyRole.Ranged, squadConfig.rangedCount, rangedPrefabs);
+
+        Debug.Log("Creat Bandit");
+        // จัดแถวทันทีหลังเสกเสร็จ
+        UpdateSquadFormation();
+    }
+    private void SpawnSpecificBandits(EnemyRole role, int count, List<GameObject> prefabs)
+    {
+        if (prefabs == null || prefabs.Count == 0) return;
+
+        for (int i = 0; i < count; i++)
+        {
+            GameObject prefab = prefabs[Random.Range(0, prefabs.Count)];
+            Vector3 randomPos = transform.position + new Vector3(Random.Range(-3f, 3f), 0, Random.Range(-3f, 3f));
+
+            GameObject bandit = Instantiate(prefab, randomPos, Quaternion.identity);
+            EnemyBase enemyScript = bandit.GetComponentInChildren<EnemyBase>();
+
+            if (enemyScript != null)
+            {
+                enemyScript.role = role; // บังคับให้เป็น Role นี้เลย
+                enemyScript.myOutPos = this;
+                AddEnemy(bandit);
+            }
+        }
+    }
+    // เพิ่มฟังก์ชันนี้ใน OutPosManager
+    public void UpdateSquadFormation()
+    {
+        enemies.RemoveAll(e => e == null);
+        if (enemies.Count == 0) return;
+
+        List<EnemyBase> tanks = new();
+        List<EnemyBase> melees = new();
+        List<EnemyBase> ranged = new();
+
+        foreach (var e in enemies)
+        {
+            var script = e.GetComponentInChildren<EnemyBase>();
+            if (script == null) continue;
+            if (script.role == EnemyRole.Tank) tanks.Add(script);
+            else if (script.role == EnemyRole.Ranged) ranged.Add(script);
+            else melees.Add(script);
+        }
+
+        // Tank: อยู่หน้าผู้เล่น
+        foreach (var t in tanks) t.SetTacticalPosition(new Vector3(0, 0, 1.5f));
+
+        // ตรงส่วน Melee
+        for (int i = 0; i < melees.Count; i++)
+        {
+            // เพิ่ม Time.time เข้าไปเพื่อให้ค่ามันแกว่งตามเวลา
+            float time = Time.time * 0.5f;
+            float angle = (i * (360f / Mathf.Max(1, melees.Count))) * Mathf.Deg2Rad + time;
+            melees[i].SetTacticalPosition(new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * 2.5f);
+        }
+        
+
+        // Ranged: ยืนห่างออกไป
+        foreach (var r in ranged) r.SetTacticalPosition(new Vector3(0, 0, -7f));
+    }
+
+    // 🟢 แก้ไขฟังก์ชัน RemoveEnemy ให้เรียก UpdateSquadFormation
+    public void RemoveEnemy(GameObject enemy)
+    {
+        if (enemies.Contains(enemy)) enemies.Remove(enemy);
+        enemies.RemoveAll(enemy => enemy == null);
+
+
+        if (enemies.Count <= 0) TryStartCapture();
+    }
+    #endregion
+
 }

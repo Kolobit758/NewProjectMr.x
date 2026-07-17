@@ -3,34 +3,44 @@ using System.Collections;
 using UnityEngine;
 
 public enum EnemyState { Idle, Chasing, Attacking, Cooldown, Dead }
+public enum EnemyRole { Tank, Melee, Ranged }
 
 public abstract class EnemyBase : MonoBehaviour
 {
-    [Header("Base Settings")]
+    public EnemyRole role;
+    public Vector3 tacticalOffset; // ตำแหน่งที่ Manager จะสั่งให้ไปยืน
+    protected float stateTimer = 0f;
     public float detectRadius = 15f;
     public LayerMask targetLayers;
     public float moveSpeed = 4f;
 
     protected Transform target;
     protected EnemyState currentState = EnemyState.Idle;
-    protected float stateTimer = 0f;
-    protected Vector3 flockOffset;
-
-    // ดึง CharacterStats ของตัวเองมาใช้งาน
     protected CharacterStats myStats;
     public OutPosManager myOutPos;
 
-    protected virtual void Awake()
+    protected virtual void Awake() => myStats = GetComponent<CharacterStats>();
+
+    // เปลี่ยนจาก Start เดิมที่เป็นการสุ่ม ให้เป็นว่างไว้ หรือใช้เซ็ตค่าเริ่มต้น
+    protected virtual void Start() { }
+
+    public void SetTacticalPosition(Vector3 newOffset)
     {
-        myStats = GetComponent<CharacterStats>();
+        tacticalOffset = newOffset;
     }
 
-    protected virtual void Start()
+    protected void MoveTowards(Vector3 destination)
     {
-        float randomAngle = Random.Range(0f, 360f);
-        float randomRadius = Random.Range(2f, 5f);
-        flockOffset = new Vector3(Mathf.Cos(randomAngle), 0, Mathf.Sin(randomAngle)) * randomRadius;
+        Vector3 separation = GetSeparationForce();
+        Vector3 direction = (destination - transform.position).normalized + (separation * 0.5f);
+        direction.y = 0;
+        transform.position += direction.normalized * moveSpeed * Time.deltaTime;
+
+        direction.y = 0;
+        transform.position += direction * moveSpeed * Time.deltaTime;
+        if (direction != Vector3.zero) transform.forward = direction;
     }
+
 
     // ใน EnemyBase.cs ตรงฟังก์ชัน Update()
     protected virtual void Update()
@@ -50,6 +60,24 @@ public abstract class EnemyBase : MonoBehaviour
         FindTarget();
         UpdateStateMachine();
     }
+    // เพิ่มฟังก์ชันนี้ใน EnemyBase.cs
+    protected Vector3 GetSeparationForce()
+    {
+        Vector3 separation = Vector3.zero;
+        float separationRadius = 1.5f;
+
+        // ตรวจสอบโจรตัวอื่นรอบๆ
+        Collider[] neighbors = Physics.OverlapSphere(transform.position, separationRadius, LayerMask.GetMask("Enemy")); // สมมติว่าโจรอยู่ Layer "Enemy"
+        foreach (var n in neighbors)
+        {
+            if (n.gameObject != this.gameObject)
+            {
+                separation += (transform.position - n.transform.position).normalized;
+            }
+        }
+        return separation;
+    }
+
 
     private IEnumerator HandleDeathRoutine()
     {
@@ -93,16 +121,6 @@ public abstract class EnemyBase : MonoBehaviour
         }
     }
 
-    protected void MoveTowards(Vector3 destination)
-    {
-        Vector3 direction = (destination - transform.position).normalized;
-        direction.y = 0;
-        transform.position += direction * moveSpeed * Time.deltaTime;
-        if (direction != Vector3.zero)
-        {
-            transform.forward = direction;
-        }
-    }
 
     protected abstract void UpdateStateMachine();
 

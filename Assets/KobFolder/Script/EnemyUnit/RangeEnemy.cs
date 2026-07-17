@@ -4,15 +4,15 @@ public class RangedEnemy : EnemyBase
 {
     [Header("Ranged Settings")]
     public float fireRate = 1.5f;
-    public float minKeepDistance = 7f; 
-    public GameObject bulletPrefab; 
+    public float minKeepDistance = 7f;
+    public GameObject bulletPrefab;
     public Transform firePoint;
     public int bulletDamage = 15; // พลังโจมตีของกระสุน
 
     protected override void Start()
     {
         base.Start();
-        flockOffset = flockOffset.normalized * Random.Range(minKeepDistance, minKeepDistance + 3f);
+        tacticalOffset = tacticalOffset.normalized * Random.Range(minKeepDistance, minKeepDistance + 3f);
     }
 
     protected override void UpdateStateMachine()
@@ -36,22 +36,15 @@ public class RangedEnemy : EnemyBase
                 lookDir.y = 0;
                 transform.forward = lookDir;
 
-                if (distanceToTarget < minKeepDistance)
-                {
-                    Vector3 retreatPos = transform.position - lookDir * moveSpeed * Time.deltaTime;
-                    transform.position = retreatPos;
-                }
-                else if (distanceToTarget > minKeepDistance + 4f)
-                {
-                    MoveTowards(target.position + flockOffset);
-                }
+                // เดินตามตำแหน่งที่ Manager สั่งไว้ใน tacticalOffset
+                MoveTowards(target.position + tacticalOffset);
 
                 currentState = EnemyState.Attacking;
                 break;
 
             case EnemyState.Attacking:
                 stateTimer -= Time.deltaTime;
-                
+
                 if (target != null)
                 {
                     Vector3 targetDir = (target.position - transform.position).normalized;
@@ -81,9 +74,9 @@ public class RangedEnemy : EnemyBase
         if (bulletPrefab != null && firePoint != null)
         {
             GameObject bullet = Instantiate(bulletPrefab, firePoint.position, transform.rotation);
-            
+
             // ส่งข้อมูลดาเมจให้ตัวกระสุนโง่ๆ ของเราไปจัดการต่อ
-            if(bullet.TryGetComponent<GreyboxBullet>(out var bulletScript))
+            if (bullet.TryGetComponent<GreyboxBullet>(out var bulletScript))
             {
                 bulletScript.SetupBullet(bulletDamage, transform.position, targetLayers);
             }
@@ -91,9 +84,9 @@ public class RangedEnemy : EnemyBase
             Rigidbody rb = bullet.GetComponent<Rigidbody>();
             if (rb != null)
             {
-                rb.linearVelocity = transform.forward * 15f; 
+                rb.linearVelocity = transform.forward * 15f;
             }
-            Destroy(bullet, 3f); 
+            Destroy(bullet, 3f);
         }
     }
 
@@ -101,7 +94,7 @@ public class RangedEnemy : EnemyBase
     {
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, minKeepDistance);
-        Gizmos.color = new Color(1f, 0.6f, 0f); 
+        Gizmos.color = new Color(1f, 0.6f, 0f);
         Gizmos.DrawWireSphere(transform.position, minKeepDistance + 4f);
 
         if (target != null && firePoint != null)

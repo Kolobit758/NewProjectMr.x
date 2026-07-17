@@ -15,6 +15,7 @@ public class UpgradeManager : MonoBehaviour
     [Header("UI")]
     public TextMeshProUGUI upgradeText;
     public bool HasHeatlamp => hasHeatLamp;
+    public bool HasHeatLamp => hasHeatLamp;
     public bool HasPetHouse => hasPetHouse;
     private void Awake()
     {
@@ -51,6 +52,7 @@ public class UpgradeManager : MonoBehaviour
         if (hasHeatLamp)
         {
             Debug.Log("heat Lamp already unlocked");
+            ShowHUDPopup("Heat Lamp already unlocked", "This upgrade is already active.");
             return;
         }
 
@@ -71,7 +73,7 @@ public class UpgradeManager : MonoBehaviour
 
         if(InventoryManager.Instance != null)
         {
-            InventoryManager.Instance.ShowDiscoveryMessage("Upgrade Unlokced: Heat Lamp");
+            InventoryManager.Instance.ShowDiscoveryMessage("Heat Lamp Unlocked!");
         }
 
         RefreshUI();
@@ -82,6 +84,7 @@ public class UpgradeManager : MonoBehaviour
         if (hasPetHouse)
         {
             Debug.Log("Pet House already built");
+            ShowHUDPopup("Pet House already built", "Dog already has the Pet House bonus.");
             return;
         }
 
@@ -101,7 +104,7 @@ public class UpgradeManager : MonoBehaviour
         ApplyPetHouseEffectIfNeeded();
 
         Debug.Log("Upgrade Built: Pet House");
-        InventoryManager.Instance.ShowDiscoveryMessage("Upgrade Built: Pet House");
+        InventoryManager.Instance.ShowDiscoveryMessage("Pet House Built!");
         RefreshUI();
     }
 
@@ -148,5 +151,13 @@ public class UpgradeManager : MonoBehaviour
         }
 
         upgradeText.text = heatLampStatus + "\n" + petHouseStatus;
+    }
+
+    private void ShowHUDPopup(string title, string detail)
+    {
+        if (HUDController.Instance != null)
+        {
+            HUDController.Instance.ShowPopup(title, detail);
+        }
     }
 }

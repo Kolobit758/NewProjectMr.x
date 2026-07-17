@@ -141,32 +141,10 @@ public class OutpostRaidSystem : MonoBehaviour
 
     private void SpawnBanditsAtOutpost(OutpostDataSO outpost, OutPosManager sceneManager)
     {
-        // 🟢 ไม่ต้องรับ banditPrefab เข้ามาแล้ว เพราะเราจะสุ่มใหม่ทุกตัวที่เสก!
-        if (banditPrefabs == null || banditPrefabs.Count == 0) return;
+        // โยนงานการเสกไปให้ Manager จัดการตาม Config ที่ตั้งไว้ในตัวค่ายนั้นๆ
+        sceneManager.SpawnBanditsByConfig();
 
-        int numberOfBandits = Random.Range(2, 5);
-
-        for (int i = 0; i < numberOfBandits; i++)
-        {
-            // 🟢 สุ่มเลือกโจรตัวใหม่ "ทุกครั้ง" ในลูปนี้เลย!
-            GameObject randomBanditPrefab = banditPrefabs[Random.Range(0, banditPrefabs.Count)];
-
-            Vector3 spawnPos = (sceneManager.outPosArea != null)
-                               ? sceneManager.outPosArea.transform.position
-                               : sceneManager.transform.position;
-
-            Vector3 randomPos = spawnPos + new Vector3(Random.Range(-5f, 5f), 0, Random.Range(-5f, 5f));
-
-            GameObject bandit = Instantiate(randomBanditPrefab, randomPos, Quaternion.identity);
-
-            EnemyBase enemyScript = bandit.GetComponentInChildren<EnemyBase>();
-            if (enemyScript != null)
-            {
-                enemyScript.myOutPos = sceneManager;
-                sceneManager.AddEnemy(bandit);
-            }
-        }
-        Debug.Log($"💀 [EVENT]: กองโจรผสม {numberOfBandits} ตัวยึดค่าย [{outpost.outpostName}] สำเร็จ!");
+        Debug.Log($"💀 [EVENT]: กองโจรบุกค่าย [{outpost.outpostName}] ตามแผน Tactical!");
     }
     #endregion
 }
