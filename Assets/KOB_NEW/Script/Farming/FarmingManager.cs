@@ -18,15 +18,17 @@ public class FarmingManager : MonoBehaviour
 
     void Update()
     {
+        // คลิกซ้ายเพื่อปลูกเมล็ดหรือเก็บเกี่ยวด้วยตัวเอง (ระบบเดิมของผู้เล่น)
         if (Input.GetMouseButtonDown(0))
         {
-            Debug.Log("Try to plant");
             TryInteractWithPlot();
         }
     }
 
     void TryInteractWithPlot()
     {
+        if (cam == null) return;
+
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);
         if (Physics.Raycast(ray, out RaycastHit hit, 100f, farmPlotLayer))
         {
@@ -35,6 +37,7 @@ public class FarmingManager : MonoBehaviour
 
             if (plot != null)
             {
+                // เคสที่ 1: แปลงว่างและผู้เล่นถือเมล็ดอยู่ -> สั่งปลูก
                 if (plot.currentStage == CropStage.Empty && currentSelectedSeed != null)
                 {
                     bool success = plot.PlantSeed(currentSelectedSeed);
@@ -44,13 +47,13 @@ public class FarmingManager : MonoBehaviour
 
                         if (ResourceInventory.Instance != null)
                         {
-                            // 🟢 แก้บรรทัดนี้: ส่ง .itemName แทนตัว Object ดิบๆ
                             ResourceInventory.Instance.ConsumeResource(currentSelectedSeed, 1);
                         }
 
                         currentSelectedSeed = null; // ปลูกเสร็จแล้ว เคลียร์มือ
                     }
                 }
+                // เคสที่ 2: แปลงพร้อมเก็บเกี่ยว -> สั่งเก็บเกี่ยวทันที
                 else if (plot.currentStage == CropStage.ReadyToHarvest)
                 {
                     plot.HarvestCrop();

@@ -53,29 +53,32 @@ public class RTS_movement : MonoBehaviour
         }
     }
 
+    // แทนที่ฟังก์ชัน MoveSelectedUnits เดิมใน RTS_movement.cs
     void MoveSelectedUnits()
     {
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);
         if (Physics.Raycast(ray, out RaycastHit hit, 1000f))
         {
             ITaskable clickedTask = hit.collider.GetComponentInParent<ITaskable>();
+            List<UnitBase> selectedUnits = allUnits.FindAll(u => u != null && u.isSelected);
 
-            foreach (UnitBase unit in allUnits)
+            foreach (UnitBase unit in selectedUnits)
             {
-                if (unit != null && unit.isSelected)
+                if (unit != null)
                 {
-                    if (clickedTask != null)
+                    if (clickedTask is CropPlots)
                     {
-                        unit.MoveTo(hit.point, clickedTask);
-
-                        if (clickedTask is GhostBuilding ghost)
-                        {
-                            unit.SetTask(ghost);
-                        }
+                        // สั่งโหมดฟาร์ม (ระบบจะจัดสรรแปลงให้เองไม่ซ้ำตัว)
+                        unit.CommandFarmingPatrol();
                     }
                     else
                     {
-                        unit.MoveTo(hit.point);
+                        // ส่งเป้าหมายพิกัดหรือ Task ปกติ (เช่น GatheringBase จะถูกส่งผ่าน MoveTo)
+                        unit.MoveTo(hit.point, clickedTask);
+                        if (clickedTask is GhostBuilding ghost)
+                        {
+                            unit.SetOrder(ghost);
+                        }
                     }
                 }
             }

@@ -66,10 +66,14 @@ public class GhostBuilding : MonoBehaviour, ITaskable
         {
             ResourceInventory.Instance.ConsumeResource(cost.item, cost.amount);
         }
-        foreach (UnitBase unitBase in activeUnits)
+        // 🟢 ต้อง snapshot ก่อนวน เพราะ ResetUnitState() -> AbandonCurrentOrder()
+        // จะย้อนมาเรียก OnUnitExit(unit) ซึ่งไป activeUnits.Remove(unit)
+        // ถ้าวนบน activeUnits ตรงๆ จะโดน "Collection was modified" ทันที
+        foreach (UnitBase unitBase in new List<UnitBase>(activeUnits))
         {
             unitBase.ResetUnitState();
         }
+        activeUnits.Clear();
 
         Debug.Log("วางตึกสำเร็จ หักทรัพยากรเรียบร้อย!");
 

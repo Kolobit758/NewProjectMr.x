@@ -23,7 +23,7 @@ public class CropPlots : MonoBehaviour, ITaskable // 🟢 ต้องใส่ 
     public string waterKey = "Water";           // ชื่อหรือ ID น้ำที่จะใช้
     public SO_ItemData fertilizerItemData;
     public SO_ItemData waterItemData;
-    
+
     [Header("AI Lock")]
     public bool isBeingServiced = false; // 🟢 ล็อคไว้กันเรียกยูนิตซ้ำซ้อน
 
@@ -77,14 +77,18 @@ public class CropPlots : MonoBehaviour, ITaskable // 🟢 ต้องใส่ 
         {
             if (unit.isCarrying && unit.carriedItem != null && unit.carriedItem == fertilizerItemData)
             {
-                unit.DropItemAtVault();
+                unit.DropItemAtVault(); // หรือจะเคลียร์ของที่ถืออยู่ตามระบบเดิม
                 SwitchStage(CropStage.NeedsWater);
-                isBeingServiced = false; // 🟢 ปลดล็อคให้รอน้ำต่อได้
+                isBeingServiced = false;
+
+                // 🟢 ทำงานขั้นนี้เสร็จแล้ว (ใส่ปุ๋ยเสร็จ) -> สั่งให้ไปลุยแปลงถัดไปต่อทันที!
+                FinishServiceAndContinuePatrol(unit);
             }
             else
             {
-                isBeingServiced = true; // 🟢 ล็อคว่ากำลังมีคนจัดการ
+                isBeingServiced = true;
                 unit.GoFetchItemAndReturn(fertilizerItemData, this);
+                // ❌ ห้ามเรียก FinishServiceAndContinuePatrol ตรงนี้ เพราะเพิ่งสั่งให้มันไปเดินไปเบิกของ ยังไม่ได้ทำแปลงนี้!
             }
         }
         else if (currentStage == CropStage.NeedsWater)
@@ -93,13 +97,23 @@ public class CropPlots : MonoBehaviour, ITaskable // 🟢 ต้องใส่ 
             {
                 unit.DropItemAtVault();
                 SwitchStage(CropStage.Growing);
-                isBeingServiced = false; // 🟢 ปลดล็อคเมื่อเสร็จสิ้น
+                isBeingServiced = false;
+
+                // 🟢 ทำงานขั้นนี้เสร็จแล้ว (รดน้ำเสร็จ) -> สั่งให้ไปลุยแปลงถัดไปต่อทันที!
+                FinishServiceAndContinuePatrol(unit);
             }
             else
             {
-                isBeingServiced = true; // 🟢 ล็อคว่ากำลังมีคนจัดการ
+                isBeingServiced = true;
                 unit.GoFetchItemAndReturn(waterItemData, this);
+                // ❌ ห้ามเรียกตรงนี้เช่นกัน เพราะกำลังจะวิ่งไปโกดัง
             }
+        }
+        else if (currentStage == CropStage.ReadyToHarvest)
+        {
+            // 🟢 เพิ่มเคสกรณีพร้อมเก็บเกี่ยวด้วย (ถ้ามีคนสั่งเก็บ)
+            HarvestCrop();
+            FinishServiceAndContinuePatrol(unit);
         }
     }
 
@@ -111,13 +125,26 @@ public class CropPlots : MonoBehaviour, ITaskable // 🟢 ต้องใส่ 
         {
             UnitBase unit = hitCollider.GetComponent<UnitBase>();
             // ถ้าเจอยูนิตที่กำลัง Idle ว่างงานอยู่ สั่งมันมาทำงานเลย!
-            if (unit != null && unit.currentBehavior == UnitBehavior.Idle)
+            if (unit != null && unit.currentState == UnitBehavior.Idle)
             {
                 Debug.Log($"🤖 [Auto] แปลงผักเรียก {unit.name} มารดน้ำ!");
                 unit.MoveTo(GetInteractionPoint(), this);
                 break; // เรียกได้ตัวนึงก็พอแล้ว ออกลูป
             }
         }
+    }
+
+
+    // ตัวอย่างจุดเรียกใช้งานเมื่อทำภารกิจเสร็จใน CropPlots.cs (เช่น ใน OnUnitInteract หรือหลังเก็บเกี่ยว)
+    public void FinishServiceAndContinuePatrol(UnitBase unit)
+    {
+        if (unit == null) return;
+
+        // ถ้าแปลงนี้เสร็จแล้ว ให้ปลดล็อคสถานะการให้บริการ
+        isBeingServiced = false;
+
+        // สั่งให้ยูนิตเข้าสู่โหมด FarmingPatrol แล้วหาแปลงถัดไปทำต่อทันที
+        unit.CommandFarmingPatrol();
     }
 
     public void HarvestCrop()
@@ -177,7 +204,8 @@ public class CropPlots : MonoBehaviour, ITaskable // 🟢 ต้องใส่ 
         }
     }
 
-    public void OnUnitExit(UnitBase unit){
+    public void OnUnitExit(UnitBase unit)
+    {
 
     }
 

@@ -15,7 +15,11 @@ public class ResourceVault : MonoBehaviour, ITaskable
             ResourceInventory.Instance.AddResource(unit.carriedItem, unit.carriedAmount);
 
             unit.DropItemAtVault();
-            unit.currentBehavior = UnitBehavior.Idle;
+
+            // 🟢 แก้: อย่ายัด currentState ตรงๆ (unit.currentState = UnitBehavior.Idle)
+            // เพราะไม่เคลียร์ carriedItem/carriedAmount/currentOrder ให้ ทำให้ข้อมูลค้างไม่ตรงกับ state
+            // ResetUnitState() เป็นจุดเดียวที่ทำความสะอาดครบทุก field พร้อมกัน
+            unit.ResetUnitState();
         }
     }
 

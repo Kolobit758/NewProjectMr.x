@@ -55,7 +55,7 @@ public class GatheringBase : MonoBehaviour, ITaskable
         this.transform.SetParent(units[0].transform);
         this.transform.localPosition = Vector3.back * 2f;
 
-        foreach (var unit in units)
+            foreach (var unit in units)
         {
             unit.carriedItem = resourceToProduce;
             unit.carriedAmount = amountResource;
