@@ -19,6 +19,11 @@ public class ResourceVault : MonoBehaviour, ITaskable
         }
     }
 
+    public void OnUnitExit(UnitBase unit)
+    {
+
+    }
+
     public Vector3 GetInteractionPoint()
     {
         // จุดที่ยูนิตต้องเดินมาหยุดข้างหน้าตึก
