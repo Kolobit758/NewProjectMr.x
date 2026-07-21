@@ -49,7 +49,7 @@ public class SpawnAllUnit : MonoBehaviour
                 animalSpawned.tag = "Unit";
                 animalSpawned.layer = LayerMask.NameToLayer(layerName);
 
-                RTS_movement.instance.allUnits.Add(animalSpawned.GetComponent<UnitBase>());
+                RTS_movement.Instance.allUnits.Add(animalSpawned.GetComponent<UnitBase>());
             }
         }
 

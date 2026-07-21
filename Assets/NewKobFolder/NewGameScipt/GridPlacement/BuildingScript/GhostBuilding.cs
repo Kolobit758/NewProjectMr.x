@@ -4,10 +4,9 @@ using System.Collections.Generic;
 public class GhostBuilding : MonoBehaviour, ITaskable
 {
     public SO_Building buildingData;
-    public float totalWorkRequired = 100f; // ต้องใช้พลังงานเท่าไหร่ถึงสร้างเสร็จ
+    public float totalWorkRequired = 100f;
     public float currentWorkDone = 0f;
 
-    // เก็บรายการยูนิตที่กำลังทำงานอยู่
     private HashSet<UnitBase> activeUnits = new HashSet<UnitBase>();
 
     void Start()
@@ -18,21 +17,32 @@ public class GhostBuilding : MonoBehaviour, ITaskable
             render.material.color = new Color(0, 0.5f, 1f, 0.5f);
         }
 
+        // 🟢 ตรวจสอบว่ามี Collider ที่เป็น Trigger หรือยัง ถ้ายังให้สร้างขึ้นมาครอบ
+        Collider col = GetComponent<Collider>();
+        if (col == null)
+        {
+            BoxCollider box = gameObject.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.size = new Vector3(3f, 2f, 3f); // ปรับขนาดตามความเหมาะสมของตึก
+        }
+        else
+        {
+            col.isTrigger = true;
+        }
     }
+
     void Update()
     {
-        // คำนวณความเร็วรวมจากยูนิตที่กำลังทำงานอยู่
         float speedPerSecond = 0f;
         foreach (var unit in activeUnits)
         {
-            // สมมติมึงมีค่า buildSpeed ใน UnitBase หรือ StatsManager
             speedPerSecond += unit.buildSpeed;
         }
 
-        if (speedPerSecond > 0)
+        if (speedPerSecond > 0 && activeUnits.Count > 0)
         {
             currentWorkDone += speedPerSecond * Time.deltaTime;
-            Debug.Log($"Progress: {currentWorkDone}/{totalWorkRequired}");
+            Debug.Log($"🏗️ Progress: {currentWorkDone:F1}/{totalWorkRequired}");
 
             if (currentWorkDone >= totalWorkRequired)
             {
@@ -41,43 +51,58 @@ public class GhostBuilding : MonoBehaviour, ITaskable
         }
     }
 
+    // 🟢 ให้ Unit เดินชน Trigger แล้วเริ่มสร้างทันที
+    private void OnTriggerEnter(Collider other)
+    {
+        UnitBase unit = other.GetComponentInParent<UnitBase>();
+        if (unit != null)
+        {
+            unit.agent.isStopped = true; // หยุดเดินเมื่อถึงตึก
+            OnUnitInteract(unit);
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        UnitBase unit = other.GetComponentInParent<UnitBase>();
+        if (unit != null)
+        {
+            OnUnitExit(unit);
+        }
+    }
+
     public void OnUnitInteract(UnitBase unit)
     {
         if (!activeUnits.Contains(unit))
         {
             activeUnits.Add(unit);
-            Debug.Log($"{unit.name} เริ่มช่วยสร้าง!");
+            Debug.Log($"👷 {unit.name} เริ่มช่วยสร้างตึก!");
         }
     }
 
-    // 🟢 เพิ่มฟังก์ชันนี้เพื่อจัดการตอนยูนิตเดินออกไป
     public void OnUnitExit(UnitBase unit)
     {
         if (activeUnits.Contains(unit))
         {
             activeUnits.Remove(unit);
-            Debug.Log($"{unit.name} เลิกช่วยสร้างแล้ว!");
+            Debug.Log($"🚶 {unit.name} เลิกช่วยสร้างตึก!");
         }
     }
 
     private void FinishBuilding()
     {
-        foreach (ResourceCost cost in buildingData.requiredResources)
+        if (buildingData != null && buildingData.Realprefab != null)
         {
-            ResourceInventory.Instance.ConsumeResource(cost.item, cost.amount);
+            Instantiate(buildingData.Realprefab, transform.position, transform.rotation);
         }
-        // 🟢 ต้อง snapshot ก่อนวน เพราะ ResetUnitState() -> AbandonCurrentOrder()
-        // จะย้อนมาเรียก OnUnitExit(unit) ซึ่งไป activeUnits.Remove(unit)
-        // ถ้าวนบน activeUnits ตรงๆ จะโดน "Collection was modified" ทันที
+
         foreach (UnitBase unitBase in new List<UnitBase>(activeUnits))
         {
             unitBase.ResetUnitState();
         }
         activeUnits.Clear();
 
-        Debug.Log("วางตึกสำเร็จ หักทรัพยากรเรียบร้อย!");
-
-        Instantiate(buildingData.Realprefab, transform.position, transform.rotation);
+        Debug.Log("🎉 สร้างตึกสำเร็จ!");
         Destroy(gameObject);
     }
 

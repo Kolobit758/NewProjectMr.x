@@ -226,9 +226,9 @@ public class TameableAnimal : MonoBehaviour
             tamedUnit.layer = LayerMask.NameToLayer(targetLayerName);
 
             // 5. ลงทะเบียนเข้าสู่ระบบควบคุม RTS ทันที (RTS_movement)
-            if (RTS_movement.instance != null && unitBaseComp != null)
+            if (RTS_movement.Instance != null && unitBaseComp != null)
             {
-                RTS_movement.instance.allUnits.Add(unitBaseComp);
+                RTS_movement.Instance.allUnits.Add(unitBaseComp);
             }
 
             Debug.Log($"✨ แปลงร่างสัตว์ป่าเป็นยูนิตกองทัพพร้อมใช้งานที่ตำแหน่ง {spawnPos} สำเร็จ!");

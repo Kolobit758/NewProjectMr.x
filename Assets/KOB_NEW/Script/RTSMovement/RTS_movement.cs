@@ -4,39 +4,44 @@ using UnityEngine.EventSystems;
 
 public class RTS_movement : MonoBehaviour
 {
-    public static RTS_movement instance;
+    public static RTS_movement Instance;
+
     [Header("Camera Settings")]
     public Camera cam;
     public float panSpeed = 20f;
-    [Header("Selection")]
-    [SerializeField] private float dragThreshold = 10f;
 
-    [Header("Selection Settings")]
-    public RectTransform selectionBoxUI; // ลาก UI Image (สี่เหลี่ยมโปร่งใส) มาใส่ตรงนี้
+    [Header("Selection UI Settings")]
+    [SerializeField] private float dragThreshold = 10f;
+    public RectTransform selectionBoxUI; // ลาก UI Image (สี่เหลี่ยมโปร่งใส) มาใส่
+    public Canvas canvas;
     private Vector2 startMousePos;
     private bool isDragging = false;
+
     [Header("Zoom Settings")]
     public float zoomSpeed = 10f;
     public float minZoom = 5f;
     public float maxZoom = 40f;
-    public Canvas canvas;
 
-    // ลิสต์เก็บยูนิตทั้งหมด
+    [Header("Layers")]
+    public LayerMask groundLayer;
+    public LayerMask interactableLayer;
+
+    // ลิสต์เก็บยูนิตทั้งหมดในฉาก
     public List<UnitBase> allUnits = new List<UnitBase>();
 
     void Awake()
     {
-        if (instance != null && instance != this)
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
-        instance = this;
+        Instance = this;
     }
 
     void Update()
     {
-        // 🟢 ทำความสะอาดลิสต์ทุกเฟรม ป้องกันการอ้างอิงถึงยูนิตหรือสัตว์ป่าที่ถูกทำลายไปแล้ว
+        // ทำความสะอาดลิสต์ทุกเฟรม ป้องกันการอ้างอิงถึงยูนิตที่ถูกทำลายไปแล้ว
         if (allUnits != null)
         {
             allUnits.RemoveAll(u => u == null || u.gameObject == null);
@@ -46,48 +51,95 @@ public class RTS_movement : MonoBehaviour
         HandleSelection();
         HandleZoom();
 
-        // 🟢 เพิ่มคำสั่งเดิน (คลิกขวา)
+        // คำสั่งคลิกขวา (สั่งการยูนิตผ่าน Job System)
         if (Input.GetMouseButtonDown(1))
         {
-            MoveSelectedUnits();
+            ProcessRightClickCommands();
         }
     }
 
-    // แทนที่ฟังก์ชัน MoveSelectedUnits เดิมใน RTS_movement.cs
-    void MoveSelectedUnits()
+    // =========================================================================
+    // COMMAND SYSTEM (จัดการคำสั่งคลิกขวาผ่าน Job System และ Manager)
+    // =========================================================================
+    void ProcessRightClickCommands()
     {
+        if (cam == null) return;
+
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);
         if (Physics.Raycast(ray, out RaycastHit hit, 1000f))
         {
-            ITaskable clickedTask = hit.collider.GetComponentInParent<ITaskable>();
             List<UnitBase> selectedUnits = allUnits.FindAll(u => u != null && u.isSelected);
+            if (selectedUnits.Count == 0) return;
 
-            foreach (UnitBase unit in selectedUnits)
+            ITaskable clickedTask = hit.collider.GetComponentInParent<ITaskable>();
+
+            // 1. เคสคลิกโดนแปลงผัก (CropPlots) -> มอบหมายให้ FarmManager จัดการกระจายแปลง
+            if (clickedTask is CropPlots)
             {
-                if (unit != null)
+                FarmManager.Instance.AssignUnitsToFarm(selectedUnits);
+                Debug.Log("🌱 [Command]: สั่งให้ยูนิตที่เลือกเข้าทำงานในแปลงฟาร์ม");
+                return;
+            }
+
+            // 2. เคสคลิกโดนแหล่งทรัพยากร (GatheringBase เช่น ต้นไม้, หิน) -> สร้าง GatherJob
+            if (clickedTask is GatheringBase gatheringNode)
+            {
+                Transform vault = FindNearestVault(gatheringNode.transform.position);
+                
+                // สร้าง GatherJob ใหม่ผ่าน JobManager
+                GameObject jobObj = new GameObject($"GatherJob_{gatheringNode.name}");
+                GatherJob gatherJob = jobObj.AddComponent<GatherJob>();
+                gatherJob.Init(gatheringNode, vault);
+
+                foreach (var unit in selectedUnits)
                 {
-                    if (clickedTask is CropPlots)
+                    if (unit != null)
                     {
-                        // สั่งโหมดฟาร์ม (ระบบจะจัดสรรแปลงให้เองไม่ซ้ำตัว)
-                        unit.CommandFarmingPatrol();
-                    }
-                    else
-                    {
-                        // ส่งเป้าหมายพิกัดหรือ Task ปกติ (เช่น GatheringBase จะถูกส่งผ่าน MoveTo)
-                        unit.MoveTo(hit.point, clickedTask);
-                        if (clickedTask is GhostBuilding ghost)
-                        {
-                            unit.SetOrder(ghost);
-                        }
+                        JobManager.Instance.CancelAllJobsForUnit(unit);
+                        gatherJob.AssignUnit(unit);
                     }
                 }
+                Debug.Log($"🌲 [Command]: สร้าง GatherJob สำหรับ {selectedUnits.Count} ยูนิต");
+                return;
+            }
+
+            // 3. เคสคลิกโดนสิ่งก่อสร้างที่กำลังสร้าง (GhostBuilding)
+            if (clickedTask is GhostBuilding ghost)
+            {
+                foreach (var unit in selectedUnits)
+                {
+                    if (unit != null)
+                    {
+                        JobManager.Instance.CancelAllJobsForUnit(unit);
+                        unit.CommandMoveTo(ghost.GetInteractionPoint());
+                        // สามารถขยายเพิ่ม BuildJob ได้ในอนาคตตรงนี้
+                    }
+                }
+                return;
+            }
+
+            // 4. เคสคลิกพื้นดินธรรมดา -> สั่งเดิน (Move) และยกเลิก Job เดิมทั้งหมด
+            if ((groundLayer.value & (1 << hit.collider.gameObject.layer)) != 0 || clickedTask == null)
+            {
+                foreach (var unit in selectedUnits)
+                {
+                    if (unit != null)
+                    {
+                        JobManager.Instance.CancelAllJobsForUnit(unit);
+                        unit.CommandMoveTo(hit.point);
+                    }
+                }
+                Debug.Log($"🚶 [Command]: สั่งย้ายตำแหน่งไปยัง {hit.point}");
             }
         }
     }
 
+    // =========================================================================
+    // CAMERA PAN & ZOOM
+    // =========================================================================
     void HandleCameraPan()
     {
-        if (Input.GetMouseButton(2)) // เมาส์กลาง
+        if (Input.GetMouseButton(2)) // คลิกเมาส์กลางค้างไว้เพื่อเลื่อนมุมกล้อง
         {
             float x = -Input.GetAxis("Mouse X") * panSpeed * Time.deltaTime;
             float z = -Input.GetAxis("Mouse Y") * panSpeed * Time.deltaTime;
@@ -95,6 +147,24 @@ public class RTS_movement : MonoBehaviour
         }
     }
 
+    void HandleZoom()
+    {
+        float scroll = Input.mouseScrollDelta.y;
+        if (scroll == 0) return;
+
+        if (cam.orthographic)
+        {
+            cam.orthographicSize = Mathf.Clamp(cam.orthographicSize - scroll * zoomSpeed, minZoom, maxZoom);
+        }
+        else
+        {
+            cam.fieldOfView = Mathf.Clamp(cam.fieldOfView - scroll * zoomSpeed, 10f, 90f);
+        }
+    }
+
+    // =========================================================================
+    // UNIT SELECTION (คลิกเลือกยูนิต และลากกล่องเลือก Box Selection)
+    // =========================================================================
     void HandleSelection()
     {
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
@@ -179,8 +249,7 @@ public class RTS_movement : MonoBehaviour
 
             Vector3 screenPos = cam.WorldToScreenPoint(unit.transform.position);
 
-            if (screenPos.z < 0)
-                continue;
+            if (screenPos.z < 0) continue;
 
             if (selectionRect.Contains(screenPos))
             {
@@ -214,21 +283,6 @@ public class RTS_movement : MonoBehaviour
         selectionBoxUI.localScale = new Vector3(Mathf.Sign(size.x), Mathf.Sign(size.y), 1);
     }
 
-    void HandleZoom()
-    {
-        float scroll = Input.mouseScrollDelta.y;
-        if (scroll == 0) return;
-
-        if (cam.orthographic)
-        {
-            cam.orthographicSize = Mathf.Clamp(cam.orthographicSize - scroll * zoomSpeed, minZoom, maxZoom);
-        }
-        else
-        {
-            cam.fieldOfView = Mathf.Clamp(cam.fieldOfView - scroll * zoomSpeed, 10f, 90f);
-        }
-    }
-
     Rect GetScreenRect(Vector2 p1, Vector2 p2)
     {
         float x = Mathf.Min(p1.x, p2.x);
@@ -236,5 +290,18 @@ public class RTS_movement : MonoBehaviour
         float w = Mathf.Abs(p1.x - p2.x);
         float h = Mathf.Abs(p1.y - p2.y);
         return new Rect(x, y, w, h);
+    }
+
+    private Transform FindNearestVault(Vector3 pos)
+    {
+        GameObject[] vaults = GameObject.FindGameObjectsWithTag("Vault");
+        Transform nearest = null;
+        float minDist = Mathf.Infinity;
+        foreach (var v in vaults)
+        {
+            float dist = Vector3.Distance(pos, v.transform.position);
+            if (dist < minDist) { minDist = dist; nearest = v.transform; }
+        }
+        return nearest;
     }
 }

@@ -18,8 +18,8 @@ MonoBehaviour:
   itemIcon: {fileID: 0}
   detail: 
   dropItemPrefab: {fileID: 0}
-  buildingGhostPrefab: {fileID: 2195364443004053354, guid: 2c755e5e15d8da848b8089da3c6f0e4f, type: 3}
-  Realprefab: {fileID: 2195364443004053354, guid: 4637ad1b82cadd94390c3455d01a7025, type: 3}
+  buildingGhostPrefab: {fileID: 6987477990558450476, guid: 53c96219b6bfb2348876ee407a423d84, type: 3}
+  Realprefab: {fileID: 3661524032074675855, guid: 5c7d2f9b9fb81f74aa87e52b2a06cbf7, type: 3}
   requiredResources:
   - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
     amount: 5

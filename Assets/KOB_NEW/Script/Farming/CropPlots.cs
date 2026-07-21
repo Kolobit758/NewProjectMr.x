@@ -1,238 +1,123 @@
 using UnityEngine;
-using System.Collections; // 🟢 จำเป็นต้องใช้สำหรับ Coroutine
 
-// 🟢 อัปเกรดสถานะให้ละเอียดขึ้นตามลำดับการปลูก
-public enum CropStage { Empty, NeedsFertilizer, NeedsWater, Growing, ReadyToHarvest }
+public enum CropStage { Empty, Growing, NeedsFertilizer, NeedsWater, ReadyToHarvest }
 
-public class CropPlots : MonoBehaviour, ITaskable // 🟢 ต้องใส่ ITaskable ให้ยูนิตคุยได้
+
+public class CropPlots : MonoBehaviour, ITaskable
 {
-    [Header("Current Status")]
     public CropStage currentStage = CropStage.Empty;
-    public SO_PlantData plantedPlantData;
+    public bool isBeingServiced = false;
+    public SO_PlantData plantedSeed;
 
     private float growthTimer = 0f;
-    private float autoCallCooldown = 0f; // กันการตะโกนเรียกยูนิตรัวๆ
-    private GameObject currentVisualObject;
-
-    [Header("Plot Durability Settings")]
-    public int maxPlotHealth = 3;
-    public int currentPlotHealth = 3;
-
-    [Header("Requirements Info")]
-    public string fertilizerKey = "Fertilizer"; // ชื่อหรือ ID ปุ๋ยที่จะใช้ (ต้องตรงกับใน Database)
-    public string waterKey = "Water";           // ชื่อหรือ ID น้ำที่จะใช้
-    public SO_ItemData fertilizerItemData;
-    public SO_ItemData waterItemData;
-
-    [Header("AI Lock")]
-    public bool isBeingServiced = false; // 🟢 ล็อคไว้กันเรียกยูนิตซ้ำซ้อน
-
+    private GameObject currentVisualInstance;
 
     void Update()
     {
-        // ⏰ ระบบรันการเจริญเติบโตเฉพาะตอนกลางวัน 
-        if (MotherTreeController.Instance != null && MotherTreeController.Instance.isNightTime) return;
-
-        // 🟢 ถ้าอยู่ในช่วงกำลังโต ก็จับเวลาไป
-        if (currentStage == CropStage.Growing)
+        // ระบบจำลองเวลาพืชโต
+        if (currentStage == CropStage.Growing && plantedSeed != null)
         {
             growthTimer += Time.deltaTime;
-
-            if (growthTimer >= plantedPlantData.timeToGrow)
+            if (growthTimer >= plantedSeed.timeToGrow)
             {
-                SwitchStage(CropStage.ReadyToHarvest);
-            }
-        }
-        // 🟢 ถ้ารอน้ำอยู่ ให้กวักมือเรียกยูนิตที่ว่างงานแถวนั้นแบบ Auto!
-        else if (currentStage == CropStage.NeedsWater)
-        {
-            // 🟢 ถ้ายังไม่มีใครกำลังเดินมาช่วย และหมดคูลดาวน์ ถึงจะเรียก
-            if (!isBeingServiced)
-            {
-                autoCallCooldown -= Time.deltaTime;
-                if (autoCallCooldown <= 0f)
-                {
-                    CallNearbyIdleUnitForWater();
-                    autoCallCooldown = 3f;
-                }
+                UpdateStage(CropStage.ReadyToHarvest);
             }
         }
     }
 
-    // 🌱 ฟังก์ชันหยอดเมล็ดลงแปลง (คนเล่นคลิกจาก FarmingManager)
-    public bool PlantSeed(SO_PlantData plantData)
-    {
-        if (currentStage != CropStage.Empty) return false;
+    public Vector3 GetInteractionPoint() => transform.position;
 
-        plantedPlantData = plantData;
-        growthTimer = 0f;
-        SwitchStage(CropStage.NeedsFertilizer); // ปลูกปุ๊บ ต้องการปุ๋ยทันที!
-        return true;
-    }
-
-    // ในฟังก์ชัน OnUnitInteract เมื่อยูนิตมาถึง
-    public void OnUnitInteract(UnitBase unit)
-    {
-        if (currentStage == CropStage.NeedsFertilizer)
-        {
-            if (unit.isCarrying && unit.carriedItem != null && unit.carriedItem == fertilizerItemData)
-            {
-                unit.DropItemAtVault(); // หรือจะเคลียร์ของที่ถืออยู่ตามระบบเดิม
-                SwitchStage(CropStage.NeedsWater);
-                isBeingServiced = false;
-
-                // 🟢 ทำงานขั้นนี้เสร็จแล้ว (ใส่ปุ๋ยเสร็จ) -> สั่งให้ไปลุยแปลงถัดไปต่อทันที!
-                FinishServiceAndContinuePatrol(unit);
-            }
-            else
-            {
-                isBeingServiced = true;
-                unit.GoFetchItemAndReturn(fertilizerItemData, this);
-                // ❌ ห้ามเรียก FinishServiceAndContinuePatrol ตรงนี้ เพราะเพิ่งสั่งให้มันไปเดินไปเบิกของ ยังไม่ได้ทำแปลงนี้!
-            }
-        }
-        else if (currentStage == CropStage.NeedsWater)
-        {
-            if (unit.isCarrying && unit.carriedItem != null && unit.carriedItem == waterItemData)
-            {
-                unit.DropItemAtVault();
-                SwitchStage(CropStage.Growing);
-                isBeingServiced = false;
-
-                // 🟢 ทำงานขั้นนี้เสร็จแล้ว (รดน้ำเสร็จ) -> สั่งให้ไปลุยแปลงถัดไปต่อทันที!
-                FinishServiceAndContinuePatrol(unit);
-            }
-            else
-            {
-                isBeingServiced = true;
-                unit.GoFetchItemAndReturn(waterItemData, this);
-                // ❌ ห้ามเรียกตรงนี้เช่นกัน เพราะกำลังจะวิ่งไปโกดัง
-            }
-        }
-        else if (currentStage == CropStage.ReadyToHarvest)
-        {
-            // 🟢 เพิ่มเคสกรณีพร้อมเก็บเกี่ยวด้วย (ถ้ามีคนสั่งเก็บ)
-            HarvestCrop();
-            FinishServiceAndContinuePatrol(unit);
-        }
-    }
-
-    // 🔍 ฟังก์ชันให้แปลงผักสแกนหายูนิตว่างงานมารดน้ำ
-    private void CallNearbyIdleUnitForWater()
-    {
-        Collider[] hitColliders = Physics.OverlapSphere(transform.position, 20f); // รัศมี 20 เมตร
-        foreach (var hitCollider in hitColliders)
-        {
-            UnitBase unit = hitCollider.GetComponent<UnitBase>();
-            // ถ้าเจอยูนิตที่กำลัง Idle ว่างงานอยู่ สั่งมันมาทำงานเลย!
-            if (unit != null && unit.currentState == UnitBehavior.Idle)
-            {
-                Debug.Log($"🤖 [Auto] แปลงผักเรียก {unit.name} มารดน้ำ!");
-                unit.MoveTo(GetInteractionPoint(), this);
-                break; // เรียกได้ตัวนึงก็พอแล้ว ออกลูป
-            }
-        }
-    }
-
-
-    // ตัวอย่างจุดเรียกใช้งานเมื่อทำภารกิจเสร็จใน CropPlots.cs (เช่น ใน OnUnitInteract หรือหลังเก็บเกี่ยว)
-    public void FinishServiceAndContinuePatrol(UnitBase unit)
-    {
-        if (unit == null) return;
-
-        // ถ้าแปลงนี้เสร็จแล้ว ให้ปลดล็อคสถานะการให้บริการ
-        isBeingServiced = false;
-
-        // สั่งให้ยูนิตเข้าสู่โหมด FarmingPatrol แล้วหาแปลงถัดไปทำต่อทันที
-        unit.CommandFarmingPatrol();
-    }
-
-    public void HarvestCrop()
-    {
-        if (currentStage != CropStage.ReadyToHarvest || plantedPlantData == null) return;
-
-        if (ResourceInventory.Instance != null)
-        {
-            int cropAmount = Random.Range(plantedPlantData.minProductAmount, plantedPlantData.maxProductAmount + 1);
-            if (plantedPlantData.cropProduct != null)
-                ResourceInventory.Instance.AddResource(plantedPlantData.cropProduct, cropAmount);
-
-            if (plantedPlantData.cropSeed != null) // แก้บัคเล็กๆ ของเก่าพิมพ์ seedPrefab ผิด
-                ResourceInventory.Instance.AddResource(plantedPlantData.cropSeed, cropAmount);
-
-            if (plantedPlantData.poopFertilizerProduct != null)
-                ResourceInventory.Instance.AddResource(plantedPlantData.poopFertilizerProduct, plantedPlantData.fertilizerAmount);
-
-            Debug.Log($"🌾 [Harvest]: เก็บเกี่ยวสำเร็จ!");
-        }
-
-        plantedPlantData = null;
-        SwitchStage(CropStage.Empty);
-        isBeingServiced = false;
-        plantedPlantData = null;
-        SwitchStage(CropStage.Empty);
-    }
-
-    private void SwitchStage(CropStage newStage)
+    public void UpdateStage(CropStage newStage)
     {
         currentStage = newStage;
+        SpawnVisualForCurrentStage();
+    }
 
-        if (currentVisualObject != null) Destroy(currentVisualObject);
-        if (plantedPlantData == null) return;
+    private void SpawnVisualForCurrentStage()
+    {
+        // ลบโมเดลเก่าทิ้งก่อน
+        if (currentVisualInstance != null)
+        {
+            Destroy(currentVisualInstance);
+        }
+
+        if (plantedSeed == null || currentStage == CropStage.Empty) return;
 
         GameObject prefabToSpawn = null;
+
         switch (currentStage)
         {
-            // 🟢 ช่วงรอน้ำ รอปุ๋ย ให้แสดงเป็นเมล็ดไปก่อน
             case CropStage.NeedsFertilizer:
             case CropStage.NeedsWater:
-                prefabToSpawn = plantedPlantData.seedPrefab;
+                prefabToSpawn = plantedSeed.seedPrefab;
                 break;
             case CropStage.Growing:
-                prefabToSpawn = plantedPlantData.growingPrefab;
+                prefabToSpawn = plantedSeed.growingPrefab;
                 break;
             case CropStage.ReadyToHarvest:
-                prefabToSpawn = plantedPlantData.fullyGrownPrefab;
+                prefabToSpawn = plantedSeed.fullyGrownPrefab;
                 break;
         }
 
         if (prefabToSpawn != null)
         {
-            Vector3 originalPrefabScale = prefabToSpawn.transform.localScale;
-            currentVisualObject = Instantiate(prefabToSpawn, transform.position, Quaternion.identity, transform);
-            currentVisualObject.transform.localScale = originalPrefabScale;
+            currentVisualInstance = Instantiate(prefabToSpawn, transform.position, transform.rotation, transform);
         }
+    }
+
+    public bool PlantSeed(SO_PlantData seedData)
+    {
+        if (currentStage != CropStage.Empty) return false;
+
+        plantedSeed = seedData;
+        growthTimer = 0f;
+        UpdateStage(CropStage.NeedsFertilizer); // หยอดเมล็ดเสร็จ เปลี่ยนเป็นสถานะรอใส่ปุ๋ย พร้อมโชว์ Model เมล็ด
+        return true;
+    }
+
+    public void OnUnitInteract(UnitBase unit)
+    {
+        if (currentStage == CropStage.NeedsFertilizer)
+        {
+            if (!unit.isCarrying)
+            {
+                unit.RequestFetchItem(plantedSeed, 1);
+                return;
+            }
+            unit.isCarrying = false;
+            UpdateStage(CropStage.NeedsWater); // ใส่ปุ๋ยเสร็จ เปลี่ยนเป็นรดน้ำ
+            unit.CompleteOrder(this);
+        }
+        else if (currentStage == CropStage.NeedsWater)
+        {
+            UpdateStage(CropStage.Growing); // รดน้ำเสร็จ เข้าสู่โหมดเติบโตตามเวลา พร้อมเปลี่ยน Model
+            unit.CompleteOrder(this);
+        }
+        else if (currentStage == CropStage.ReadyToHarvest)
+        {
+            HarvestCrop();
+            unit.CompleteOrder(this);
+        }
+    }
+
+    public void HarvestCrop()
+    {
+        if (plantedSeed != null && plantedSeed.cropProduct != null)
+        {
+            int amount = Random.Range(plantedSeed.minProductAmount, plantedSeed.maxProductAmount + 1);
+            ResourceInventory.Instance?.AddResource(plantedSeed.cropProduct, amount);
+            Debug.Log($"✨ เก็บเกี่ยวสำเร็จ! ได้รับ {plantedSeed.cropProduct.itemName} จำนวน {amount} ชิ้น");
+        }
+
+        if (currentVisualInstance != null) Destroy(currentVisualInstance);
+
+        currentStage = CropStage.Empty;
+        plantedSeed = null;
+        isBeingServiced = false;
     }
 
     public void OnUnitExit(UnitBase unit)
     {
-
+        isBeingServiced = false;
     }
-
-    // 🟢 จำเป็นต้องมีสำหรับ ITaskable
-    public Vector3 GetInteractionPoint() => transform.position;
-
-    #region Destroy Product
-    // public void TakeDamageFromBat()
-    // {
-    //     currentPlotHealth--;
-    //     Debug.LogWarning($"⚠ [CropPlots]: แปลงโดนแทะ! เลือดเหลือ {currentPlotHealth}/{maxPlotHealth}");
-
-    //     if (currentPlotHealth <= 0) DestroyCropCompletely();
-    // }
-
-    // private void DestroyCropCompletely()
-    // {
-    //     currentStage = CropStage.Empty;
-    //     currentPlotHealth = maxPlotHealth; 
-
-    //     foreach (Transform child in transform)
-    //     {
-    //         if (child.name.Contains("Clone") || child.name.Contains("GlandRice"))
-    //         {
-    //             Destroy(child.gameObject);
-    //         }
-    //     }
-    // }
-    #endregion
 }
