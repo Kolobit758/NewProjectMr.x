@@ -20,3 +20,6 @@ MonoBehaviour:
   dropItemPrefab: {fileID: 0}
   buildingGhostPrefab: {fileID: 5737511417201392290, guid: e37d149840d5d824eab1c23e4367c733, type: 3}
   Realprefab: {fileID: 5737511417201392290, guid: e37d149840d5d824eab1c23e4367c733, type: 3}
+  requiredResources:
+  - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
+    amount: 5

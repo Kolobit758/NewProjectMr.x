@@ -30,6 +30,7 @@ public class SO_ItemData : ScriptableObject
             Debug.Log($"[Item] สวมใส่ {itemName} แล้ว!");
         }
 
+
         Debug.LogWarning($"[Item] {itemName} เป็นวัตถุดิบ ไม่สามารถกดใช้ตรงๆ ได้");
         return false;
     }

@@ -38,10 +38,7 @@ public class KobToolbarUI : MonoBehaviour
     private void Update()
     {
         HandleKeyboardInput();
-        if (Input.GetMouseButtonDown(0))
-        {
-            TriggerItemUsageOfSelectedSlot();
-        }
+
     }
 
     private void BuildToolbarSlots()
@@ -84,7 +81,10 @@ public class KobToolbarUI : MonoBehaviour
         {
             if (Input.GetKeyDown(KeyCode.Alpha1 + i))
             {
-                SelectSlot(i);
+                SelectSlot(i); // เลือกสล็อตก่อน
+
+                // 🟢 เพิ่มตรงนี้: ให้มันกดใช้ไอเทมในสล็อตนั้นทันที
+                TriggerItemUsageOfSelectedSlot();
                 break;
             }
         }

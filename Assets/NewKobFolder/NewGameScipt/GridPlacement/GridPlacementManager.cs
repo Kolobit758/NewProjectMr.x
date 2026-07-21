@@ -5,6 +5,7 @@ using System.Collections.Generic;
 public class GridPlacementManager : MonoBehaviour
 {
     public static GridPlacementManager Instance { get; private set; }
+    public Camera mainCam;
 
     [Header("Grid Settings")]
     public float cellSize = 1f;
@@ -34,7 +35,7 @@ public class GridPlacementManager : MonoBehaviour
             {
                 PlaceStructure();
             }
-            
+
         }
 
         if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
@@ -56,27 +57,15 @@ public class GridPlacementManager : MonoBehaviour
     {
         GameObject ghost = Instantiate(prefab);
 
+        // 🟢 แปะสคริปต์ GhostBuilding ลงไปที่ตัวมันเลย
+        GhostBuilding gb = ghost.AddComponent<GhostBuilding>();
+        gb.buildingData = currentBuildingData;
+
+        // ล้าง Collider ออกเพื่อให้เดินชนได้ (ผ่าน ITaskable)
         Collider[] ghostColliders = ghost.GetComponentsInChildren<Collider>();
-        foreach (Collider c in ghostColliders)
-        {
-            c.enabled = false;
-        }
+        foreach (Collider c in ghostColliders) c.enabled = false;
 
-        // บังคับเปลี่ยน Layer ไป Ignore Raycast ป้องกันเลเซอร์ชนตัวเอง
         ghost.layer = LayerMask.NameToLayer("Ignore Raycast");
-        foreach (Transform child in ghost.transform)
-        {
-            child.gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
-        }
-
-        MeshRenderer[] renderers = ghost.GetComponentsInChildren<MeshRenderer>();
-        foreach (MeshRenderer render in renderers)
-        {
-            if (ghostMaterial != null)
-            {
-                render.material = ghostMaterial;
-            }
-        }
         return ghost;
     }
 
@@ -84,7 +73,7 @@ public class GridPlacementManager : MonoBehaviour
     {
         if (currentGhost == null) return;
 
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
         // ยิงเลเซอร์ตรวจจับหน้าผิวเกาะ
@@ -108,45 +97,32 @@ public class GridPlacementManager : MonoBehaviour
     {
         if (currentGhost == null || !currentGhost.activeSelf) return;
 
-        Vector3 spawnPos = currentGhost.transform.position;
+        // 1. เก็บ Ghost ตัวปัจจุบันไว้
+        GameObject placedGhost = currentGhost;
 
-        if (currentBuildingData != null && currentBuildingData.Realprefab != null)
+        // 2. ปิด Material สีฟ้า/ปรับ Material ให้เป็นตึกจริง (ถ้ามี)
+        // หรือถ้ามึงมีโมเดลตึกจริงที่ซ่อนอยู่ ให้เปิดมันขึ้นมาแทนที่ Ghost ตัวนี้
+        placedGhost.GetComponent<GhostBuilding>().enabled = true; // มั่นใจว่า Script นี้ทำงาน
+
+        // 3. ห้ามทำลาย Ghost (ห้ามเรียก EndPlacementMode แบบปกติ) 
+        // แต่ให้เรา "วาง" มันไว้แล้วสร้าง Ghost ตัวใหม่ขึ้นมาให้ผู้เล่นวางต่อ (ถ้าต้องการ)
+        // หรือถ้ามึงอยากให้วางแล้วจบ ก็แค่ตัดการ Destroy(currentGhost) ออก
+
+
+
+        // 4. หักของใน Inventory
+        if (ResourceInventory.Instance != null)
         {
-            // สร้างสิ่งปลูกสร้างจริงตรงพิกัดที่ Ghost ล็อกผิวไว้เรียบร้อย
-            GameObject realBuilding = Instantiate(currentBuildingData.Realprefab, spawnPos, Quaternion.identity);
-
-            // ยิงเลเซอร์ดักลงทะเบียนเข้าเกาะ
-            Ray castDown = new Ray(spawnPos + Vector3.up * 5f, Vector3.down);
-            RaycastHit hit;
-
-            if (Physics.Raycast(castDown, out hit, 15f, placementLayer))
-            {
-                IslandController island = hit.collider.GetComponent<IslandController>();
-                if (island == null) island = hit.collider.GetComponentInParent<IslandController>();
-
-                if (island != null)
-                {
-                    if (island.placedStructures == null)
-                    {
-                        island.placedStructures = new List<GameObject>();
-                    }
-
-                    island.placedStructures.Add(realBuilding);
-
-                    if (realBuilding.TryGetComponent<MachineStructure>(out MachineStructure machine))
-                    {
-                        machine.myIsland = island;
-                    }
-                }
-            }
-
-            if (ResourceInventory.Instance != null)
-            {
-                ResourceInventory.Instance.ConsumeResource(currentBuildingData, 1);
-            }
+            ResourceInventory.Instance.ConsumeResource(currentBuildingData, 1);
         }
+        // 🟢 เพิ่มตรงนี้: หลังจากวาง Ghost ทิ้งไว้บนฉากแล้ว ให้เปิด Collider มันซะ!
+        Collider[] colliders = currentGhost.GetComponentsInChildren<Collider>();
+        foreach (Collider c in colliders) c.enabled = true;
 
+        // แล้วค่อยเคลียร์ currentGhost เพื่อสร้างตัวใหม่
+        currentGhost = null;
         EndPlacementMode();
+
     }
 
     private Vector3 SnapToGrid(Vector3 position)

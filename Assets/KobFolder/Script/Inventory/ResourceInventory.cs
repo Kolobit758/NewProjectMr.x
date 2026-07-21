@@ -226,6 +226,44 @@ public class ResourceInventory : MonoBehaviour
         NotifyChanged();
     }
 
+    public SO_ItemData ConsumeAndGetReturn(string itemNameKey, int amountToConsume)
+    {
+        for (int i = 0; i < inventorySize; i++)
+        {
+            if (!slots[i].IsEmpty && slots[i].itemData != null)
+            {
+                if (slots[i].itemData.itemName.Contains(itemNameKey) || slots[i].itemData.itemId.Contains(itemNameKey))
+                {
+                    if (slots[i].amount >= amountToConsume)
+                    {
+                        slots[i].amount -= amountToConsume;
+                        if (slots[i].amount <= 0) slots[i].Clear();
+
+                        // สั่งอัปเดตระบบคลังและเซฟเกมตามลอจิกมาตรฐานของมึง
+                        NotifyChanged();
+                        if (SaveLoadManager.Instance != null)
+                        {
+                            SaveLoadManager.Instance.MarkInventoryDirty();
+                            SaveLoadManager.Instance.SaveGame();
+                        }
+                        return FindItemDataById(itemNameKey);
+                    }
+                    else
+                    {
+                        amountToConsume -= slots[i].amount;
+                        
+                        slots[i].Clear();
+                        return FindItemDataById(itemNameKey);
+                    }
+                }
+            }
+        }
+
+        
+        NotifyChanged();
+        return null;
+    }
+
     #region 🟢 ประตูระบายข้อมูลสำหรับเซฟโหลดแบบรวมศูนย์ (Centralized Bridge)
 
     public List<string> GetSaveItemIds()

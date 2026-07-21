@@ -10,6 +10,8 @@ TagManager:
   - TeamManageHome
   - TrackingObject
   - Branch
+  - Vault
+  - GatheringResource
   layers:
   - Default
   - TransparentFX
