@@ -158,6 +158,14 @@ public class TameableAnimal : MonoBehaviour
     {
         if (isTamed) return;
 
+        // 🟢 เช็คก่อนเลยว่า คอกสัตว์เต็มหรือยัง?
+        if (AnimalShelter.IsTotalCapacityFull())
+        {
+            Debug.LogWarning("⚠️ [Tame System]: คอกสัตว์เต็มแล้ว! ต้องสร้าง Animal Shelter เพิ่มก่อนถึงจะจับสัตว์เพิ่มได้!");
+            // TODO: โชว์ UI แจ้งเตือนผู้เล่นบนหน้าจอว่าคอกเต็ม
+            return;
+        }
+
         // เช็คว่าอาหารชิ้นนี้เป็นของที่สัตว์ตัวนี้กิน/ชอบไหม
         bool isLikedFood = false;
         foreach (var food in acceptedFoodTypes)
@@ -179,7 +187,6 @@ public class TameableAnimal : MonoBehaviour
             Debug.Log($"😒 สัตว์ป่าเมิน {foodItem.itemName} มันไม่ชอบกิน!");
         }
     }
-
     public void Tame()
     {
         if (isTamed) return;
@@ -229,6 +236,13 @@ public class TameableAnimal : MonoBehaviour
             if (RTS_movement.instance != null && unitBaseComp != null)
             {
                 RTS_movement.instance.allUnits.Add(unitBaseComp);
+            }
+
+            // 🟢 5.1 ลงทะเบียนเข้าโรงสัตว์ที่ยังว่างอยู่เพื่อคุมระบบนอนกลางคืน
+            AnimalShelter availableShelter = AnimalShelter.GetAvailableShelter();
+            if (availableShelter != null && unitBaseComp != null)
+            {
+                availableShelter.RegisterUnit(unitBaseComp);
             }
 
             Debug.Log($"✨ แปลงร่างสัตว์ป่าเป็นยูนิตกองทัพพร้อมใช้งานที่ตำแหน่ง {spawnPos} สำเร็จ!");

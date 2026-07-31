@@ -56,6 +56,11 @@ public class CharacterStats : MonoBehaviour
             Debug.Log($"{gameObject.name} ตายแล้ว!");
         }
     }
+    public void Die()
+    {
+        Debug.Log("is Died");
+        Destroy(gameObject);
+    }
 
 
     public void UseStamina(int amount)
@@ -75,7 +80,7 @@ public class CharacterStats : MonoBehaviour
     [ContextMenu("GetPrivateData")]
     public int[] GetPrivateData()
     {
-        int[] privateData = { maxHP, maxMana, maxStamina };
+        int[] privateData = { maxHP, maxMana, maxStamina};
         // Debug.Log("maxHP : " + maxHP + " maxMana :" + maxMana + " maxStamina : " + maxStamina);
         return privateData;
     }

@@ -18,6 +18,8 @@ public class GhostBuilding : MonoBehaviour, ITaskable
             render.material.color = new Color(0, 0.5f, 1f, 0.5f);
         }
 
+        Debug.Log("Start build : " + buildingData.itemName);
+
     }
     void Update()
     {
@@ -81,5 +83,9 @@ public class GhostBuilding : MonoBehaviour, ITaskable
         Destroy(gameObject);
     }
 
-    public Vector3 GetInteractionPoint() => transform.position;
+    public Vector3 GetInteractionPoint()
+    {
+
+        return transform.position;
+    }
 }

@@ -1,3 +1,4 @@
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class FarmingManager : MonoBehaviour
@@ -5,10 +6,10 @@ public class FarmingManager : MonoBehaviour
     public static FarmingManager Instance { get; private set; }
 
     [Header("Selected Seed Data")]
-    public SO_PlantData currentSelectedSeed; 
+    public SO_PlantData currentSelectedSeed;
     public LayerMask farmPlotLayer;
 
-    public Camera cam;          
+    public Camera cam;
 
     void Awake()
     {
@@ -18,7 +19,8 @@ public class FarmingManager : MonoBehaviour
 
     void Update()
     {
-        // คลิกซ้ายเพื่อปลูกเมล็ดหรือเก็บเกี่ยวด้วยตัวเอง (ระบบเดิมของผู้เล่น)
+        if (GridPlacementManager.Instance != null && GridPlacementManager.Instance.IsPlacementModeActive) return; // 🟢
+
         if (Input.GetMouseButtonDown(0))
         {
             TryInteractWithPlot();
@@ -33,7 +35,7 @@ public class FarmingManager : MonoBehaviour
         if (Physics.Raycast(ray, out RaycastHit hit, 100f, farmPlotLayer))
         {
             CropPlots plot = hit.collider.GetComponent<CropPlots>();
-            if (plot == null) plot = hit.collider.GetComponentInParent<CropPlots>();
+            if (plot == null) plot = hit.collider.GetComponentInChildren<CropPlots>();
 
             if (plot != null)
             {
@@ -59,6 +61,7 @@ public class FarmingManager : MonoBehaviour
                     plot.HarvestCrop();
                 }
             }
+
         }
     }
 }

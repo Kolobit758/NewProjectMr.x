@@ -14,12 +14,17 @@ public class ResourceVault : MonoBehaviour, ITaskable
         {
             ResourceInventory.Instance.AddResource(unit.carriedItem, unit.carriedAmount);
 
-            unit.DropItemAtVault();
-
-            // 🟢 แก้: อย่ายัด currentState ตรงๆ (unit.currentState = UnitBehavior.Idle)
-            // เพราะไม่เคลียร์ carriedItem/carriedAmount/currentOrder ให้ ทำให้ข้อมูลค้างไม่ตรงกับ state
-            // ResetUnitState() เป็นจุดเดียวที่ทำความสะอาดครบทุก field พร้อมกัน
-            unit.ResetUnitState();
+            // 🔒 ถ้ายูนิตมี gatBase (Tree/Water node) ให้ gatBase จัดการ ResetUnitState เองผ่าน OnUnitSentResourced
+            // ถ้าไม่มี (เช่น Fetch flow) ค่อย ResetUnitState เอง — ป้องกัน Double-call ที่ทำให้ auto-repeat เสียหาย
+            if (unit.gatBase != null)
+            {
+                unit.DropItemAtVault(); // gatBase จะ reset ให้เอง
+            }
+            else
+            {
+                unit.DropItemAtVault(); // trigger callback ถ้ามี
+                unit.ResetUnitState();  // reset เองเพราะไม่มีใครทำให้
+            }
         }
     }
 

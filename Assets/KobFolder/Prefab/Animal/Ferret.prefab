@@ -860,7 +860,7 @@ NavMeshAgent:
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
-  m_StoppingDistance: 0
+  m_StoppingDistance: 1.5
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
@@ -895,8 +895,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c345903e14c6f8b4a909b91bce32c596, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AnimalStatsManager
+  damage: 0
   hpBar: {fileID: 6991356583194333587}
   staminaBar: {fileID: 428064820548698759}
+  defaultTemplate: {fileID: 11400000, guid: 72a7b46ed3abfc24fb687fb0f4cb3253, type: 2}
 --- !u!114 &7356045400683743856
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1004,6 +1006,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 08bf3fdf91e9799489547de150df6dce, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  animalStatsManager: {fileID: 0}
   selectionCircle: {fileID: 0}
   agent: {fileID: 0}
   isSelected: 0
@@ -1014,12 +1017,19 @@ MonoBehaviour:
   rope: {fileID: 9196408634684629621}
   carriedItem: {fileID: 0}
   carriedAmount: 0
-  autoTaskScanRadius: 100
+  gatBase: {fileID: 0}
+  defaultSpeed: 0
+  autoTaskScanRadius: 10
+  currentJobType: 0
   attackRange: 2
   attackCooldown: 1.5
+  damage: 10
   attackableLayer:
     serializedVersion: 2
     m_Bits: 128
+  isExhausted: 0
+  isSleepingInShelter: 0
+  unitFaction: 0
 --- !u!120 &9196408634684629621
 LineRenderer:
   serializedVersion: 2
@@ -1066,8 +1076,8 @@ LineRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_Positions:
-  - {x: -2.4854174, y: -0.9127064, z: -4.3101196}
-  - {x: 2.5, y: -0.98729444, z: -2.5}
+  - {x: 19.378448, y: 0.28323334, z: -11.577576}
+  - {x: 19.5, y: 3.93, z: -11.5}
   m_Parameters:
     serializedVersion: 3
     widthMultiplier: 1

@@ -17,9 +17,16 @@ public enum UnitBehavior
     Attacking, // กำลังสู้ศัตรู (priority ต่ำสุด แทรกได้เฉพาะตอนไม่มี Order)
     FarmingPatrol
 }
+public enum JobType
+{
+    None,
+    Gathering,
+    Farming
+}
 
 public class UnitBase : MonoBehaviour
 {
+    public AnimalStatsManager animalStatsManager;
     public GameObject selectionCircle;
     public NavMeshAgent agent;
     private Animator anim;
@@ -30,8 +37,6 @@ public class UnitBase : MonoBehaviour
     public UnitBehavior currentState = UnitBehavior.Idle;
 
     // 🟢 "คำสั่งหลัก" (Order) ตัวเดียวที่คุมทุกอย่าง
-    // ตราบใดที่ตัวนี้ไม่เป็น null แปลว่ายูนิต "ติดเควส" อยู่
-    // ห้าม AutoScan / Combat เข้ามาแย่งซีน จนกว่า Order จะเสร็จ หรือมีคำสั่งใหม่มาทับ
     private ITaskable currentOrder;
 
     [Header("Gathering power")]
@@ -44,6 +49,13 @@ public class UnitBase : MonoBehaviour
     public int carriedAmount;
     private Transform draggedVisualTarget;
 
+    // 🔒 Guard: กันการตรวจบน arrival เร็วเกินไป (เฟรม 0 ของ SetDestination)
+    private bool _waitingForPathCalc = false;
+
+    // 🟢 เปลี่ยนจาก GatheringBase เป็น ResourceNodeBase เพื่อรองรับทั้งต้นไม้และแม่น้ำ
+    public ResourceNodeBase gatBase;
+    public float defaultSpeed;
+
     [Header("Fetch (สั่งไปหาของระหว่างเควส)")]
     private SO_ItemData fetchItemData;
     private Transform fetchVault;
@@ -54,25 +66,38 @@ public class UnitBase : MonoBehaviour
     private float scanCooldown = 0f;
 
     [Header("Auto-Repeat Gathering (เก็บทรัพยากรซ้ำอัตโนมัติ)")]
-    // 🟢 true = เพิ่งไปเก็บทรัพยากร (เช่นต้นไม้) มา ให้ลองหาต้นถัดไปชนิดเดียวกันเองเลย
-    // ถูกล้างอัตโนมัติทุกครั้งที่มีคำสั่งใหม่มาทับผ่าน CommandMoveTo / CommandInteract
-    public bool autoRepeatEnabled = false;
+    public JobType currentJobType = JobType.None;
     private SO_ItemData autoRepeatResourceType;
 
     [Header("Combat (priority ต่ำสุด)")]
     public float attackRange = 2f;
     public float attackCooldown = 1.5f;
     private float lastAttackTime = 0f;
+    public float damage = 0;
     public LayerMask attackableLayer;
     private Transform currentAttackTarget;
 
-    // มี Order ค้างอยู่ไหม? ใช้ตัวนี้เป็นเงื่อนไขเดียวในการปิดกั้น AutoScan/Combat
     private bool HasOrder => currentOrder != null;
+    [Header("Sleep & Shift System")]
+    public bool isExhausted = false; // อาการล้าจากการอดนอนข้ามคืน
+    public bool isSleepingInShelter = false;
+    [Header("Combat Faction (Rock-Paper-Scissors)")]
+    public FactionType unitFaction = FactionType.AnimalLarge; // เลือกประเภทของยูนิตนี้ใน Inspector ได้เลย
+
 
     void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         anim = GetComponent<Animator>();
+        defaultSpeed = agent.speed;
+
+        // AnimalStatsManager animal = transform.GetComponent<AnimalStatsManager>();
+    }
+
+    void Start() // 🟢 เปลี่ยนมาใช้ Start หรือสร้างฟังก์ชัน Setup แยก
+    {
+        animalStatsManager = GetComponent<AnimalStatsManager>();
+
     }
 
     void Update()
@@ -81,61 +106,31 @@ public class UnitBase : MonoBehaviour
         UpdateRopeVisual();
     }
 
-    // =====================================================================
-    // STATE MACHINE CORE
-    // =====================================================================
     private void RunStateMachine()
     {
         switch (currentState)
         {
-            case UnitBehavior.Idle:
-                HandleIdleState();
-                break;
-
-            case UnitBehavior.MovingToOrder:
-                HandleMovingToOrderState();
-                break;
-
-            case UnitBehavior.Interacting:
-                // งานระหว่างทำจะจบตัวเองผ่าน callback ของ ITaskable (ดูเมธอด CompleteOrder)
-                break;
-
-            case UnitBehavior.FetchItem_MoveToVault:
-                // คุมด้วย coroutine WaitUntilReachVaultAndReturn
-                break;
-
-            case UnitBehavior.FetchItem_ReturnToOrder:
-                HandleMovingToOrderState(); // เดินกลับไปหาเป้าหมายเดิม ใช้ logic เดียวกับเดินไป order
-                break;
-
-            case UnitBehavior.DraggingToVault:
-                // คุมด้วย coroutine CheckArrivalAtVault
-                break;
-
-            case UnitBehavior.Attacking:
-                HandleCombatBehavior();
-                break;
-            case UnitBehavior.FarmingPatrol:
-                HandleFarmingPatrolState();
-                break;
+            case UnitBehavior.Idle: HandleIdleState(); break;
+            case UnitBehavior.MovingToOrder: HandleMovingToOrderState(); break;
+            case UnitBehavior.Interacting: break;
+            case UnitBehavior.FetchItem_MoveToVault: break;
+            case UnitBehavior.FetchItem_ReturnToOrder: HandleMovingToOrderState(); break;
+            case UnitBehavior.DraggingToVault: break;
+            case UnitBehavior.Attacking: HandleCombatBehavior(); break;
+            case UnitBehavior.FarmingPatrol: HandleFarmingPatrolState(); break;
         }
     }
 
-    /// <summary>
-    /// Idle คือสถานะเดียวที่ยอมให้ AutoScan / Combat / Auto-Repeat เข้ามาเสนองานได้
-    /// เพราะไม่มี Order ค้างอยู่แล้ว
-    /// ลำดับความสำคัญ: ศัตรู > งานเก็บของซ้ำที่ค้างไว้ > งานฟาร์ม/ตึกทั่วไป
-    /// </summary>
     private void HandleIdleState()
     {
-        if (isCarrying) return; // กำลังแบกของอยู่ ไม่ต้องหางานใหม่
+        if (isCarrying) return;
+        if (isSleepingInShelter) return;
 
         scanCooldown -= Time.deltaTime;
         if (scanCooldown <= 0f)
         {
             scanCooldown = 1f;
 
-            // 1) หาศัตรูก่อน (หรือจะสลับลำดับกับ auto task ก็ได้ตามที่ต้องการ)
             if (TryFindNearbyEnemy(out Transform enemy))
             {
                 currentAttackTarget = enemy;
@@ -143,100 +138,128 @@ public class UnitBase : MonoBehaviour
                 return;
             }
 
-            // 2) 🟢 [Auto-Repeat]: เพิ่งไปเก็บทรัพยากรมา (เช่นต้นไม้) ให้ลองหาต้นถัดไปชนิดเดียวกัน
-            // ก่อนไปรับงานอื่น เพื่อให้ยูนิตวนเก็บของชนิดเดิมต่อเนื่องเองโดยไม่ต้องสั่งซ้ำ
-            if (autoRepeatEnabled && TryFindNearbyMatchingResourceNode(out GatheringBase repeatNode))
+            // 🟢 [Auto-Repeat]: รองรับ ResourceNodeBase ทั่วไป
+            if (currentJobType == JobType.Gathering)
             {
-                Debug.Log($"🌲 [Auto-Repeat]: {name} ไปเก็บทรัพยากรต้นถัดไปเองอัตโนมัติ!");
-                CommandGather(repeatNode);
+                if (gatBase != null && gatBase.canGathering)
+                {
+                    CommandGather(gatBase);
+                    return;
+                }
+                else
+                {
+                    if (TryFindMatchingResourceNearLastBase(out ResourceNodeBase nearbyNode))
+                    {
+                        CommandGather(nearbyNode);
+                        return;
+                    }
+                }
+            }
+
+            // 🟢 [Auto-Repeat]: สำหรับ Farming ให้วนลูปปลูกผักต่อถ้าร่วงกลับมาสถานะ Idle (เช่น ของในโกดังหมดชั่วคราว)
+            if (currentJobType == JobType.Farming)
+            {
+                CommandFarmingPatrol();
                 return;
             }
 
-            // 3) ไม่มีศัตรู ไม่มีงานซ้ำให้ทำ ลองหางานแปลงผัก/ตึกที่ต้องการความช่วยเหลือ
             TryFindAndExecuteNearbyTask();
         }
     }
 
+    /// <summary>
+    /// 🟢 ค้นหาแหล่งทรัพยากรชนิดเดิมในบริเวณใกล้เคียง (รองรับคลาสแม่ ResourceNodeBase)
+    /// </summary>
+    private bool TryFindMatchingResourceNearLastBase(out ResourceNodeBase node)
+    {
+        node = null;
+        if (gatBase == null) return false;
+
+        Collider[] hits = Physics.OverlapSphere(gatBase.transform.position, 12f);
+        float minDst = Mathf.Infinity;
+
+        foreach (var hit in hits)
+        {
+            ResourceNodeBase rb = hit.GetComponentInParent<ResourceNodeBase>();
+            if (rb == null || !rb.canGathering) continue;
+
+            if (autoRepeatResourceType != null && rb.resourceToProduce != autoRepeatResourceType) continue;
+
+            float dst = Vector3.Distance(transform.position, rb.transform.position);
+            if (dst < minDst)
+            {
+                minDst = dst;
+                node = rb;
+            }
+        }
+
+        return node != null;
+    }
+
     private void HandleMovingToOrderState()
     {
+        // 🔒 รอให้ NavMesh คำนวณ path เสร็จก่อนเสมอ
+        if (_waitingForPathCalc)
+        {
+            if (agent.pathPending) return; // ยังคำนวณอยู่
+            _waitingForPathCalc = false;    // คำนวณเสร็จแล้ว ถอด guard
+        }
+
         if (agent.pathPending) return;
         if (agent.remainingDistance > agent.stoppingDistance) return;
 
-        // ถึงจุดหมายแล้ว
         if (currentOrder != null)
         {
             ChangeState(UnitBehavior.Interacting);
             currentOrder.OnUnitInteract(this);
-            // NOTE: ตัว ITaskable (เช่น CropPlots / GhostBuilding / GatheringBase) เป็นคนเรียก
-            // CompleteOrder() หรือ RequestFetchItem() กลับมาเองเมื่อทำงานเสร็จ/ต้องการของ
         }
         else
         {
-            // สั่งเดินเฉยๆ ไม่มีเป้าหมายงาน
             ChangeState(UnitBehavior.Idle);
         }
     }
 
-    private void ChangeState(UnitBehavior next)
-    {
-        currentState = next;
-    }
+    private void ChangeState(UnitBehavior next) => currentState = next;
 
-    // =====================================================================
-    // PUBLIC COMMANDS — จุดเดียวที่อนุญาตให้ "สั่งงานใหม่" มาทับ Order เดิมได้
-    // =====================================================================
-
-    /// <summary>สั่งเดินเฉยๆ ไม่มี task ผูกท้าย (ยกเลิก Order เดิมทันที รวมถึงยกเลิก auto-repeat ด้วย)</summary>
     public void CommandMoveTo(Vector3 position)
     {
-        autoRepeatEnabled = false; // 🟢 มีคำสั่งใหม่จากผู้เล่น = เลิกวนงานเก่าอัตโนมัติ
+        if (isSleepingInShelter) return; // 🔒 กำลังหลับอยู่ สั่งงานไม่ได้
+
+        currentJobType = JobType.None;
         AbandonCurrentOrder();
         agent.isStopped = false;
         agent.SetDestination(position);
         ChangeState(UnitBehavior.MovingToOrder);
     }
 
-    /// <summary>
-    /// สั่งงานหลัก (Order) ใหม่ — เช่น "ไปทำฟาร์ม" / "ไปช่วยสร้างตึก"
-    /// จะทำงานนี้ "อย่างเดียว" จนกว่าจะเสร็จ หรือมีคำสั่งใหม่มาทับเท่านั้น
-    /// </summary>
     public void CommandInteract(ITaskable task)
     {
+        if (isSleepingInShelter) return; // 🔒 กำลังหลับอยู่ สั่งงานไม่ได้
         if (task == null) return;
 
-        // 🟢 คำสั่งใหม่ (ไม่ว่าจะเป็นงานอะไรก็ตาม) ให้เคลียร์ auto-repeat เสมอ
-        // ถ้าเป็นการสั่งเก็บของแบบ auto-repeat จริงๆ ให้ไปเรียกผ่าน CommandGather() แทน
-        // ซึ่งจะตั้งค่ากลับเป็น true อีกทีหลังจากเรียกเมธอดนี้
-        autoRepeatEnabled = false;
-
+        currentJobType = JobType.None;
         AbandonCurrentOrder();
         currentOrder = task;
 
         agent.isStopped = false;
         agent.SetDestination(task.GetInteractionPoint());
+        _waitingForPathCalc = true; // 🔒 Guard: รอ 1 รอบให้ NavMesh เริ่มคำนวณ path
         ChangeState(UnitBehavior.MovingToOrder);
     }
 
+
     /// <summary>
-    /// สั่งให้ยูนิตไปเก็บทรัพยากร (เช่นต้นไม้) ผ่าน GatheringBase และ "จดจำ" ไว้ว่างานนี้ให้ทำซ้ำอัตโนมัติ
-    /// พอส่งของที่โกดังเสร็จแล้ว (ResetUnitState ถูกเรียก) ยูนิตจะพยายามหาทรัพยากรชนิดเดียวกัน
-    /// ต้นถัดไปที่ใกล้ที่สุดแล้วไปเก็บต่อเองทันที โดยไม่ต้องสั่งใหม่
-    /// จนกว่าผู้เล่นจะสั่ง CommandMoveTo / CommandInteract (งานอื่น) มาทับ
+    /// 🟢 เปลี่ยนพารามิเตอร์รับ ResourceNodeBase แทน GatheringBase เดิม
     /// </summary>
-    public void CommandGather(GatheringBase node)
+    public void CommandGather(ResourceNodeBase node)
     {
         if (node == null) return;
 
-        CommandInteract(node); // ข้างในจะเคลียร์ autoRepeatEnabled ก่อน แล้วค่อยตั้งใหม่ด้านล่างนี้
-        autoRepeatEnabled = true;
+        CommandInteract(node);
+        currentJobType = JobType.Gathering;
         autoRepeatResourceType = node.resourceToProduce;
     }
 
-    /// <summary>
-    /// เรียกจากตัว ITaskable เมื่อ "เควสของมันจบสมบูรณ์แล้ว"
-    /// (เช่น สร้างตึกเสร็จ / รดน้ำแปลงผักเสร็จ) — ค่อยปลด Order
-    /// ห้ามที่อื่นเคลียร์ currentOrder เอง นอกจากจุดนี้กับ Abandon/Command ใหม่
-    /// </summary>
     public void CompleteOrder(ITaskable finishedTask)
     {
         if (currentOrder == finishedTask)
@@ -247,17 +270,9 @@ public class UnitBase : MonoBehaviour
         ChangeState(UnitBehavior.Idle);
     }
 
-    /// <summary>
-    /// เรียกจากตัว ITaskable ระหว่างทำงาน เมื่อพบว่า "ยังขาดของ" (เช่น ปุ๋ยหมด)
-    /// ยูนิตจะวิ่งไปเบิกของแล้ว "กลับมาทำ Order เดิมต่อ" โดยอัตโนมัติ — Order ไม่ถูกยกเลิก
-    /// </summary>
     public void RequestFetchItem(SO_ItemData itemData, int amount = 1)
     {
-        if (currentOrder == null)
-        {
-            Debug.LogWarning($"{name}: RequestFetchItem ถูกเรียกทั้งที่ไม่มี Order ค้างอยู่");
-            return;
-        }
+        if (currentOrder == null) return;
 
         fetchItemData = itemData;
         fetchAmount = amount;
@@ -265,8 +280,7 @@ public class UnitBase : MonoBehaviour
 
         if (fetchVault == null || fetchItemData == null)
         {
-            Debug.LogWarning("ไม่พบโกดัง หรือไม่ได้กำหนดข้อมูลไอเทมที่จะเบิก!");
-            ChangeState(UnitBehavior.MovingToOrder); // ลองกลับไปทำงานเดิมต่อเผื่อแก้ปัญหาได้เอง
+            ChangeState(UnitBehavior.MovingToOrder);
             return;
         }
 
@@ -278,21 +292,9 @@ public class UnitBase : MonoBehaviour
         StartCoroutine(WaitUntilReachVaultAndReturn());
     }
 
-    /// <summary>
-    /// ผูก Order ให้ยูนิตตรงๆ โดยไม่สั่งให้เดิน (compat กับโค้ดเดิมที่เคยเรียก unit.SetTask(ghost))
-    /// ใช้ตอนที่ยูนิตเดินถึง/ชนเป้าหมายอยู่แล้ว แค่ต้องการให้จำไว้ว่ากำลังทำงานนี้อยู่
-    /// (เพื่อให้ AbandonCurrentOrder เรียก OnUnitExit ถูกตัวตอนยูนิตเลิกงานทีหลัง)
-    /// ถ้าต้องการสั่งให้เดินไปด้วย ให้ใช้ CommandInteract แทน
-    /// </summary>
-    public void SetOrder(ITaskable task)
-    {
-        currentOrder = task;
-    }
-
-    /// <summary>เผื่อโค้ดภายนอกอยากเช็คว่ายูนิตติดเควสอะไรอยู่ (read-only)</summary>
+    public void SetOrder(ITaskable task) => currentOrder = task;
     public ITaskable GetCurrentOrder() => currentOrder;
 
-    /// <summary>ยกเลิก Order ปัจจุบันแบบเงียบๆ (ใช้ก่อนรับคำสั่งใหม่ หรือตอน Reset)</summary>
     private void AbandonCurrentOrder()
     {
         if (currentOrder != null)
@@ -310,47 +312,32 @@ public class UnitBase : MonoBehaviour
             selectionCircle.SetActive(value);
     }
 
-    // =====================================================================
-    // Trigger เดินชน — ยอมรับงานอัตโนมัติ "เฉพาะตอนไม่มี Order" หรือ
-    // ถ้ามี Order อยู่แล้ว ต้องเป็นเป้าหมายเดียวกับ Order เท่านั้น (กันแย่งซีนเควส)
-    // =====================================================================
     private void OnTriggerEnter(Collider other)
     {
+        // 🔒 ถ้ากำลังแบกของ หรือกำลังเดิน Dragging อยู่ อย่าเข้าไปแย่งงานใหม่
         if (isCarrying) return;
+        if (currentState == UnitBehavior.DraggingToVault) return;
 
         ITaskable task = other.GetComponentInParent<ITaskable>();
         if (task == null) return;
 
-        bool isOurOwnOrder = (currentOrder == task);
-        // 🟢 แก้บั๊ก: เดิมเช็ค currentState == Idle ด้วย ทำให้ตอนผู้เล่นสั่ง CommandMoveTo
-        // (state = MovingToOrder แต่ currentOrder เป็น null) แล้วเดินถูตึกพอดี กลับไม่ถูกรับงาน
-        // เงื่อนไขที่ถูกต้องคือเช็คแค่ "มี Order ค้างอยู่จริงไหม" เท่านั้น ไม่ต้องสนใจ state
-        bool freeToAutoAccept = !HasOrder;
-
-        if (!isOurOwnOrder && !freeToAutoAccept) return; // มีเควสอื่นค้างอยู่ ไม่ไปยุ่งกับตึก/แปลงอื่น
-
-        agent.isStopped = true;
-
-        if (freeToAutoAccept)
+        // 🟢 เปลี่ยนเงื่อนไขชน ให้ตรวจจับ ResourceNodeBase แทน
+        if (task is ResourceNodeBase resourceNode)
         {
-            currentOrder = task; // เดินชนแล้วรับเป็น Order ใหม่ (auto)
-
-            // 🟢 ถ้าเดินชนต้นไม้/แหล่งทรัพยากร (GatheringBase) แบบไม่ได้ตั้งใจ
-            // ให้ถือว่านี่คืองานเก็บของแบบ auto-repeat ด้วยเช่นกัน
-            if (task is GatheringBase gatherNode)
+            // เข้าได้เฉพาะตอนไม่มี Order หรือกำลังเดินหา node นี้อยู่
+            if (!HasOrder || currentOrder == (object)resourceNode)
             {
-                autoRepeatEnabled = true;
-                autoRepeatResourceType = gatherNode.resourceToProduce;
+                currentOrder = resourceNode;
+                currentJobType = JobType.Gathering;
+                autoRepeatResourceType = resourceNode.resourceToProduce;
+
+                agent.isStopped = true;
+                ChangeState(UnitBehavior.Interacting);
+                resourceNode.OnUnitInteract(this);
             }
         }
-
-        ChangeState(UnitBehavior.Interacting);
-        task.OnUnitInteract(this);
     }
 
-    // =====================================================================
-    // Auto Task Scanning — ทำงานเฉพาะตอน Idle และไม่มี Order เท่านั้น
-    // =====================================================================
     #region Auto Task Scanning AI
     private void TryFindAndExecuteNearbyTask()
     {
@@ -377,50 +364,16 @@ public class UnitBase : MonoBehaviour
         {
             if (plot.currentStage == CropStage.NeedsFertilizer || plot.currentStage == CropStage.NeedsWater)
             {
-                Debug.Log($"🤖 [Smart AI]: {name} เจองานแปลงผัก เดินไปจัดการเองออโต้!");
                 CommandInteract(plot);
             }
         }
         else if (nearestTask is GhostBuilding)
         {
-            Debug.Log($"🤖 [Smart AI]: {name} เดินไปช่วยสร้างตึกออโต้!");
             CommandInteract(nearestTask);
         }
     }
-
-    /// <summary>
-    /// 🟢 [Auto-Repeat]: หาแหล่งทรัพยากร (GatheringBase) ที่ใกล้ที่สุด ซึ่งเป็น "ชนิดเดียวกัน"
-    /// กับที่เพิ่งไปเก็บมาล่าสุด (autoRepeatResourceType) เท่านั้น กันวิ่งไปเก็บของผิดชนิด
-    /// </summary>
-    private bool TryFindNearbyMatchingResourceNode(out GatheringBase node)
-    {
-        node = null;
-        Collider[] hits = Physics.OverlapSphere(transform.position, autoTaskScanRadius);
-        float minDst = Mathf.Infinity;
-
-        foreach (var hit in hits)
-        {
-            GatheringBase gb = hit.GetComponentInParent<GatheringBase>();
-            if (gb == null) continue;
-
-            // ถ้าไม่ได้ระบุชนิดไว้ (เผื่อกรณีพิเศษ) ก็รับได้ทุกชนิด
-            if (autoRepeatResourceType != null && gb.resourceToProduce != autoRepeatResourceType) continue;
-
-            float dst = Vector3.Distance(transform.position, hit.transform.position);
-            if (dst < minDst)
-            {
-                minDst = dst;
-                node = gb;
-            }
-        }
-
-        return node != null;
-    }
     #endregion
 
-    // =====================================================================
-    // Reset
-    // =====================================================================
     public void ResetUnitState()
     {
         AbandonCurrentOrder();
@@ -428,6 +381,12 @@ public class UnitBase : MonoBehaviour
         isCarrying = false;
         carriedItem = null;
         draggedVisualTarget = null;
+
+        if (currentJobType != JobType.Gathering)
+        {
+            gatBase = null;
+            agent.speed = defaultSpeed;
+        }
 
         if (rope != null) rope.enabled = false;
 
@@ -438,65 +397,70 @@ public class UnitBase : MonoBehaviour
         }
 
         currentAttackTarget = null;
-        // 🟢 หมายเหตุ: ตั้งใจ "ไม่" เคลียร์ autoRepeatEnabled / autoRepeatResourceType ตรงนี้
-        // เพราะ ResetUnitState ถูกเรียกตอนส่งของที่โกดังเสร็จพอดี ซึ่งเป็นจังหวะที่เรา
-        // ต้องการให้ยูนิตจำได้ว่า "เพิ่งเก็บทรัพยากรชนิดนี้มา" แล้วไปหาต้นถัดไปเองใน HandleIdleState
         ChangeState(UnitBehavior.Idle);
     }
 
-    // =====================================================================
-    // Resource Gathering (ระบบลากของเดิม — แยกจาก Order system)
-    // =====================================================================
     #region Resource Gathering
-    public void StartDragging(Transform targetNode, Transform vault)
+    public void StartDragging(Transform targetNode, Transform vault, float customSpeed = 3f)
     {
-        AbandonCurrentOrder();
+        // 🔒 ไม่ใช้ AbandonCurrentOrder เพราะจะลบ gatBase ที่ gathering
+        // แต่ยกเลิก coroutines เก่าทั้งหมดและ clear order reference
+        StopAllCoroutines();
+        currentOrder = null;
 
         agent.isStopped = false;
         agent.enabled = true;
         isCarrying = true;
         draggedVisualTarget = targetNode;
 
+        agent.speed = customSpeed;
+
         if (rope != null) rope.enabled = true;
 
         agent.SetDestination(vault.position);
         ChangeState(UnitBehavior.DraggingToVault);
 
-        StopAllCoroutines();
         StartCoroutine(CheckArrivalAtVault(vault));
     }
 
     public void DropItemAtVault()
     {
-        Debug.Log("ส่งของแล้ว รอ ลบข้อมูล");
-
-        if (draggedVisualTarget != null)
+        if (gatBase != null)
         {
-            GatheringBase gatBase = draggedVisualTarget.GetComponent<GatheringBase>();
-            if (gatBase != null)
-            {
-                gatBase.OnUnitSentResourced();
-                return;
-            }
+            gatBase.OnUnitSentResourced();
+            return;
         }
         ResetUnitState();
     }
 
     IEnumerator CheckArrivalAtVault(Transform vault)
     {
-        while (agent.remainingDistance > agent.stoppingDistance) yield return null;
+        yield return new WaitForEndOfFrame();
+        while (agent.pathPending) yield return null;
+
+        while (Vector3.Distance(transform.position, vault.position) > (agent.stoppingDistance + 1.5f))
+        {
+            if (!agent.hasPath && agent.velocity.sqrMagnitude < 0.01f)
+                break;
+
+            yield return null;
+        }
 
         if (isCarrying)
         {
             ResourceVault v = vault.GetComponent<ResourceVault>();
-            if (v != null) v.OnUnitInteract(this);
+            if (v != null)
+            {
+                v.OnUnitInteract(this);
+            }
+            else
+            {
+                ResetUnitState();
+            }
         }
     }
     #endregion
 
-    // =====================================================================
-    // Fetch item mid-order (สั่งให้ไปเบิกของ แล้วกลับมาทำ Order เดิมต่อ)
-    // =====================================================================
     #region Fetch Item Flow
     IEnumerator WaitUntilReachVaultAndReturn()
     {
@@ -508,29 +472,22 @@ public class UnitBase : MonoBehaviour
         if (ResourceInventory.Instance.HasResource(fetchItemData.itemName, fetchAmount))
         {
             carriedItem = ResourceInventory.Instance.ConsumeAndGetReturn(fetchItemData.itemName, fetchAmount);
-            carriedAmount = fetchAmount; // 🟢 บั๊กเดิม: ลืมตั้งค่านี้ ทำให้ carriedAmount ค้างเป็น 0 ตลอด
+            carriedAmount = fetchAmount;
             isCarrying = true;
-
-            Debug.Log($"{name} เบิก {fetchItemData.itemName} มาแล้ว กำลังเดินกลับไปที่ Order เดิม!");
 
             if (currentOrder != null)
             {
-                // 🟢 แก้บั๊ก: ห้ามปลด isCarrying ตรงนี้! ต้องถือของไว้จนกว่าจะเดินถึงแปลง/ตึกเป้าหมาย
-                // แล้วให้ ITaskable (CropPlots) เป็นคนเช็ค unit.isCarrying ตอน OnUnitInteract เอง
-                // ก่อนหน้านี้ตั้ง isCarrying = false ตรงนี้ไปด้วย เลยทำให้ถึงที่หมายแล้วดูเหมือน "มือเปล่า"
                 agent.isStopped = false;
                 agent.SetDestination(currentOrder.GetInteractionPoint());
                 ChangeState(UnitBehavior.FetchItem_ReturnToOrder);
             }
             else
             {
-                Debug.LogWarning($"{name}: เบิกของมาแล้วแต่ Order เดิมหายไป (ถูกยกเลิกระหว่างทาง)");
                 ChangeState(UnitBehavior.Idle);
             }
         }
         else
         {
-            Debug.LogWarning($"โกดังไม่มี {fetchItemData.itemName} ให้เบิก!");
             ChangeState(UnitBehavior.Idle);
         }
     }
@@ -549,9 +506,6 @@ public class UnitBase : MonoBehaviour
     }
     #endregion
 
-    // =====================================================================
-    // Rope visual
-    // =====================================================================
     private void UpdateRopeVisual()
     {
         if (rope == null || !rope.enabled) return;
@@ -568,9 +522,6 @@ public class UnitBase : MonoBehaviour
         }
     }
 
-    // =====================================================================
-    // Combat — priority ต่ำสุด แทรกได้เฉพาะตอนไม่มี Order (HasOrder == false)
-    // =====================================================================
     #region Combat System
     private bool TryFindNearbyEnemy(out Transform enemy)
     {
@@ -594,9 +545,6 @@ public class UnitBase : MonoBehaviour
 
     private void HandleCombatBehavior()
     {
-        // ถ้าระหว่างนี้มี Order เข้ามาแทรก (ผู้เล่นสั่งงานใหม่) ให้เลิกสู้ทันที — ไม่ต้องทำอะไร
-        // เพราะ CommandInteract/CommandMoveTo จะ ChangeState ทับอยู่แล้ว
-
         if (currentAttackTarget == null || !currentAttackTarget.gameObject.activeInHierarchy)
         {
             currentAttackTarget = null;
@@ -635,32 +583,53 @@ public class UnitBase : MonoBehaviour
             transform.rotation = Quaternion.LookRotation(direction);
         }
 
+        // 1. เช็คว่าเป้าหมายมี CharacterStats หรือเป็นศัตรูไหม
         CharacterStats enemyStats = currentAttackTarget.GetComponent<CharacterStats>();
-        if (enemyStats == null)
+        if (enemyStats == null) return;
+
+        // 2. ดึงประเภทของศัตรูจาก EnemyController (ถ้ามี)
+        FactionType enemyFaction = FactionType.AnimalLarge; // ค่าสำรอง
+        EnemyController enemyController = currentAttackTarget.GetComponent<EnemyController>();
+        if (enemyController != null && enemyController.enemyData != null)
         {
-            Debug.LogWarning($"⚠️ เป้าหมาย {currentAttackTarget.name} ไม่มีสคริปต์ CharacterStats!");
-            return;
+            enemyFaction = enemyController.enemyData.factionType;
         }
 
-        int damageToDeal = gatheringPower > 0 ? gatheringPower : 10;
-        enemyStats.currentHP -= damageToDeal;
-        if (enemyStats.currentHP < 0) enemyStats.currentHP = 0;
+        // 3. 🌟 คำนวณดาเมจตามหลักแพ้ทางชนะทาง (CombatSystem จาก UnitType.cs)
+        float baseDamage = animalStatsManager != null ? animalStatsManager.damage : 10f;
+        float multiplier = CombatSystem.GetDamageMultiplier(unitFaction, enemyFaction);
+        int finalDamage = Mathf.RoundToInt(baseDamage * multiplier);
 
-        Debug.Log($"🗡️ {name} โจมตี {currentAttackTarget.name} สร้างความเสียหาย {damageToDeal}! เลือดศัตรูเหลือ: {enemyStats.currentHP}");
+        Debug.Log($"⚔️ [Unit Attack]: ยูนิตฝ่ายเรา ({unitFaction}) โจมตีศัตรู ({enemyFaction}) | ตัวคูณ: {multiplier}x | ดาเมจสุทธิ: {finalDamage}");
+
+        // 4. ส่งดาเมจไปยังศัตรู (ผ่าน EnemyController หรือ CharacterStats โดยตรง)
+        if (enemyController != null)
+        {
+            // ส่งตำแหน่งผู้โจมตีไปด้วย เพื่อให้ HitFeedback เด้งถอยหลังถูกทิศทาง
+            enemyController.TakeDamage(finalDamage, unitFaction, transform.position);
+        }
+        else
+        {
+            enemyStats.TakeDamage(finalDamage, transform.position);
+        }
 
         if (enemyStats.currentHP <= 0)
         {
-            Debug.Log($"💀 ศัตรู {currentAttackTarget.name} ถูกกำจัดแล้ว!");
             currentAttackTarget = null;
+            
             agent.isStopped = false;
             ChangeState(UnitBehavior.Idle);
         }
     }
     #endregion
+
     #region Farming
     public void CommandFarmingPatrol()
     {
+        if (isSleepingInShelter) return; // 🔒 กำลังหลับอยู่ สั่งงานไม่ได้
+
         AbandonCurrentOrder();
+        currentJobType = JobType.Farming;
         ChangeState(UnitBehavior.FarmingPatrol);
         FindAndWalkToNextFarmTask();
     }
@@ -669,17 +638,30 @@ public class UnitBase : MonoBehaviour
     {
         if (agent.pathPending) return;
 
-        // ถ้ายูนิตกำลังเดินไปถึงจุดหมายแล้ว (ไม่ว่าจะเดินไปถึงแปลงผัก หรือเดินวนตรวจ)
+        // เช็คว่าถึงเป้าหมาย (แปลงผัก) หรือยัง
         if (agent.remainingDistance <= agent.stoppingDistance)
         {
-            // ลองมองหาแปลงใกล้ๆ อีกรอบว่ามีอันไหนต้องการความช่วยเหลือไหม
+            agent.isStopped = true;
+
+            // ถ้ามี Order เป็น CropPlots อยู่ และยังไม่ได้จัดการ ให้สั่ง Interact ทันที
+            if (currentOrder is CropPlots plot)
+            {
+                // ป้องกันการเรียกซ้ำรัวๆ ถ้ากำลังทำงานอยู่
+                if (currentState != UnitBehavior.Interacting)
+                {
+                    ChangeState(UnitBehavior.Interacting);
+                    plot.OnUnitInteract(this);
+                }
+                return;
+            }
+
+            // ถ้าไม่มีเป้าหมาย ให้หาแปลงถัดไปเดินไปเรื่อยๆ (Patrol)
             FindAndWalkToNextFarmTask();
         }
     }
 
     public void FindAndWalkToNextFarmTask()
     {
-        // 1. ค้นหาแปลงผักทั้งหมดในรัศมี
         Collider[] hits = Physics.OverlapSphere(transform.position, 20f);
         CropPlots bestPlot = null;
         float minDst = Mathf.Infinity;
@@ -688,13 +670,8 @@ public class UnitBase : MonoBehaviour
         {
             CropPlots plot = hit.GetComponentInParent<CropPlots>();
 
-            // 🟢 เงื่อนไขสำคัญ: 
-            // - ต้องไม่ใช่แปลงที่ว่างเปล่า หรือกำลังเติบโต
-            // - ต้องไม่อยู่ในระหว่างถูกยูนิตตัวอื่นให้บริการ/จองอยู่ (isBeingServiced == false)
-            // - หรือถ้าเป็นแปลงที่ตัวเราเองกำลังทำอยู่ ก็อนุญาต
             if (plot != null && plot.currentStage != CropStage.Empty && plot.currentStage != CropStage.Growing)
             {
-                // 🟢 แปลง currentOrder เป็น object เพื่อป้องกันการเตือน CS0252
                 bool isMyCurrentPlot = ((object)currentOrder == (object)plot);
 
                 if (!plot.isBeingServiced || isMyCurrentPlot)
@@ -711,14 +688,13 @@ public class UnitBase : MonoBehaviour
 
         if (bestPlot != null)
         {
-            // ถ้าเดิมเคยจับจองแปลงอื่นอยู่ ให้ปลดล็อคแปลงเก่าก่อน
             if (currentOrder is CropPlots oldPlot && oldPlot != bestPlot)
             {
                 oldPlot.isBeingServiced = false;
             }
 
             currentOrder = bestPlot;
-            bestPlot.isBeingServiced = true; // 🟢 ล็อคทันทีกันยูนิตตัวอื่นแย่งแปลงนี้!
+            bestPlot.isBeingServiced = true;
 
             agent.isStopped = false;
             agent.SetDestination(bestPlot.GetInteractionPoint());
@@ -726,8 +702,6 @@ public class UnitBase : MonoBehaviour
         }
         else
         {
-            // 🟢 ถ้าแปลงทั้งหมดถูกจับจองหรือเต็มหมดแล้ว ยูนิตที่เหลือจะไม่ไปรุม 
-            // แต่จะเดินแยกย้ายไปยืนสแตนด์บาย/เดินตรวจรอบนอกโซนฟาร์มแทน
             currentOrder = null;
             agent.isStopped = false;
 
@@ -746,14 +720,13 @@ public class UnitBase : MonoBehaviour
 
     public void MoveTo(Vector3 position, ITaskable task = null)
     {
-        if (task is GatheringBase gatherNode)
+        // 🟢 เปลี่ยนจากการเช็ค GatheringBase ตรงๆ เป็น ResourceNodeBase
+        if (task is ResourceNodeBase resourceNode)
         {
-            // 🟢 สั่งให้ยูนิตทุกตัวที่ถูกเลือก วิ่งมารุมล้อมช่วยกันเก็บทรัพยากรกลุ่มนี้
-            CommandGather(gatherNode);
+            CommandGather(resourceNode);
         }
         else if (task is CropPlots)
         {
-            // สั่งกระจายกำลังทำฟาร์มแบบไม่แย่งกัน
             CommandFarmingPatrol();
         }
         else if (task != null)
@@ -768,6 +741,17 @@ public class UnitBase : MonoBehaviour
 
     public void GoFetchItemAndReturn(SO_ItemData itemData, ITaskable ultimateTask, int amount = 1)
     {
-        RequestFetchItem(itemData, amount); // ultimateTask ไม่จำเป็นแล้ว เพราะ currentOrder เก็บไว้ในตัวอยู่แล้ว
+        RequestFetchItem(itemData, amount);
     }
+
+
+    public void OnDrawGizmos()
+    {
+        Gizmos.color = Color.blue;
+
+        Gizmos.DrawSphere(transform.position, autoTaskScanRadius);
+
+    }
+
+
 }

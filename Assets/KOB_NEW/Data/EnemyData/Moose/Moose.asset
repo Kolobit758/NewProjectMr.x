@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbcd200f58101a040ab38462aa695362, type: 3}
+  m_Name: Moose
+  m_EditorClassIdentifier: 
+  enemyName: Moose
+  enemyPrefab: {fileID: 1491062723898133646, guid: a078734f8d111a84aa656900f3244c64, type: 3}
+  factionType: 0
+  maxHealth: 100
+  attackDamage: 15
+  attackRange: 2
+  moveSpeed: 10

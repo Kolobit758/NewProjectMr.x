@@ -15,6 +15,8 @@ public class GridPlacementManager : MonoBehaviour
     private SO_Building currentBuildingData;
     public Material ghostMaterial;
     private bool isPlacementMode = false;
+    public bool IsPlacementModeActive => isPlacementMode;
+    private float ghostPivotOffsetY = 0f;
 
     void Awake()
     {
@@ -28,14 +30,12 @@ public class GridPlacementManager : MonoBehaviour
 
         UpdateGhostPosition();
 
-        // 🟢 แก้ไขจุดที่ 1: เอา canPlaceThisFrame ที่เอ๋อค้างออกไปเลยมึง จิ้มเมื่อไหร่วางเมื่อนั้น ดักด้วยความชัวร์ของตัววัตถุแทน!
         if (Input.GetMouseButtonDown(0))
         {
             if (currentGhost != null)
             {
                 PlaceStructure();
             }
-
         }
 
         if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
@@ -44,29 +44,57 @@ public class GridPlacementManager : MonoBehaviour
         }
     }
 
+    public void StartPlacementManager(GameObject ghostPrefab, SO_Building buildingData)
+    {
+        // แก้ชื่อเมธอดให้ตรงกันถ้ามีการเรียกใช้จากข้างนอก หรือคงชื่อ StartPlacementMode ไว้ตามเดิม
+    }
+
     public void StartPlacementMode(GameObject ghostPrefab, SO_Building buildingData)
     {
         if (currentGhost != null) Destroy(currentGhost);
 
         currentBuildingData = buildingData;
         currentGhost = InstantiatingGhost(ghostPrefab);
-        isPlacementMode = true; // 🟢 เปิดโหมดตรงๆ ไม่ง้อ Coroutine หน่วงเวลาให้ค้างมึง
+        isPlacementMode = true;
     }
 
     private GameObject InstantiatingGhost(GameObject prefab)
     {
         GameObject ghost = Instantiate(prefab);
 
-        // 🟢 แปะสคริปต์ GhostBuilding ลงไปที่ตัวมันเลย
-        GhostBuilding gb = ghost.AddComponent<GhostBuilding>();
+        GhostBuilding gb = ghost.GetComponent<GhostBuilding>();
+        if (gb == null) gb = ghost.AddComponent<GhostBuilding>();
         gb.buildingData = currentBuildingData;
 
-        // ล้าง Collider ออกเพื่อให้เดินชนได้ (ผ่าน ITaskable)
         Collider[] ghostColliders = ghost.GetComponentsInChildren<Collider>();
         foreach (Collider c in ghostColliders) c.enabled = false;
 
         ghost.layer = LayerMask.NameToLayer("Ignore Raycast");
+
+        // 🟢 แก้ไขจุดที่ 1: คำนวณ Offset จาก Mesh/Renderer โดยอ้างอิงจาก Pivot ของ Object โดยตรง
+        ghostPivotOffsetY = CalculatePivotToBottomOffset(ghost);
+
         return ghost;
+    }
+
+    private float CalculatePivotToBottomOffset(GameObject obj)
+    {
+        Renderer[] renderers = obj.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return 0f;
+
+        Bounds bounds = renderers[0].bounds;
+        foreach (Renderer r in renderers)
+        {
+            bounds.Encapsulate(r.bounds);
+        }
+
+        // แปลงค่า World Bounds min.y ให้เทียบกับ Position ของ Object ในตอนนั้น
+        // เพื่อให้รู้ว่าฐานล่างสุดอยู่ต่ำกว่า Pivot เท่าไหร่ในหน่วย World Space
+        float bottomY = bounds.min.y;
+        float pivotY = obj.transform.position.y;
+
+        // ถ้า pivot อยู่ตรงกลางหรือด้านบน ฐานล่างสุดจะติดลบเมื่อเทียบกับ pivot เราจึงดึงระยะห่างออกมา
+        return pivotY - bottomY;
     }
 
     private void UpdateGhostPosition()
@@ -76,13 +104,13 @@ public class GridPlacementManager : MonoBehaviour
         Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
-        // ยิงเลเซอร์ตรวจจับหน้าผิวเกาะ
         if (Physics.Raycast(ray, out hit, 500f, placementLayer))
         {
             Vector3 gridPos = SnapToGrid(hit.point);
 
-            // 🟢 [แก้ไขจุดตาย]: ล็อกความสูงจากจุดที่เลเซอร์เมาส์ชนผิวบนสุดจริง ๆ ไม่เด้งลงไปกึ่งกลางโมเดลแล้วมึง!
-            gridPos.y = hit.point.y;
+            // 🟢 แก้ไขจุดนี้: เอาความสูงพื้นผิวบวกกับ Offset ของ Pivot ที่คำนวณไว้
+            // มันจะช่วยดันตัวตึกขึ้นมาให้อยู่บนพื้นพอดี ไม่จมลงไปครับ
+            gridPos.y = hit.point.y + ghostPivotOffsetY;
 
             currentGhost.transform.position = gridPos;
             currentGhost.SetActive(true);
@@ -97,32 +125,21 @@ public class GridPlacementManager : MonoBehaviour
     {
         if (currentGhost == null || !currentGhost.activeSelf) return;
 
-        // 1. เก็บ Ghost ตัวปัจจุบันไว้
         GameObject placedGhost = currentGhost;
 
-        // 2. ปิด Material สีฟ้า/ปรับ Material ให้เป็นตึกจริง (ถ้ามี)
-        // หรือถ้ามึงมีโมเดลตึกจริงที่ซ่อนอยู่ ให้เปิดมันขึ้นมาแทนที่ Ghost ตัวนี้
-        placedGhost.GetComponent<GhostBuilding>().enabled = true; // มั่นใจว่า Script นี้ทำงาน
+        GhostBuilding gb = placedGhost.GetComponent<GhostBuilding>();
+        if (gb != null) gb.enabled = true;
 
-        // 3. ห้ามทำลาย Ghost (ห้ามเรียก EndPlacementMode แบบปกติ) 
-        // แต่ให้เรา "วาง" มันไว้แล้วสร้าง Ghost ตัวใหม่ขึ้นมาให้ผู้เล่นวางต่อ (ถ้าต้องการ)
-        // หรือถ้ามึงอยากให้วางแล้วจบ ก็แค่ตัดการ Destroy(currentGhost) ออก
-
-
-
-        // 4. หักของใน Inventory
         if (ResourceInventory.Instance != null)
         {
             ResourceInventory.Instance.ConsumeResource(currentBuildingData, 1);
         }
-        // 🟢 เพิ่มตรงนี้: หลังจากวาง Ghost ทิ้งไว้บนฉากแล้ว ให้เปิด Collider มันซะ!
-        Collider[] colliders = currentGhost.GetComponentsInChildren<Collider>();
+
+        Collider[] colliders = placedGhost.GetComponentsInChildren<Collider>();
         foreach (Collider c in colliders) c.enabled = true;
 
-        // แล้วค่อยเคลียร์ currentGhost เพื่อสร้างตัวใหม่
         currentGhost = null;
         EndPlacementMode();
-
     }
 
     private Vector3 SnapToGrid(Vector3 position)

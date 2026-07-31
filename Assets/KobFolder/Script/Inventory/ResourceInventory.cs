@@ -251,7 +251,7 @@ public class ResourceInventory : MonoBehaviour
                     else
                     {
                         amountToConsume -= slots[i].amount;
-                        
+
                         slots[i].Clear();
                         return FindItemDataById(itemNameKey);
                     }
@@ -259,7 +259,7 @@ public class ResourceInventory : MonoBehaviour
             }
         }
 
-        
+
         NotifyChanged();
         return null;
     }
@@ -284,6 +284,22 @@ public class ResourceInventory : MonoBehaviour
             amounts.Add(slots[i].IsEmpty ? 0 : slots[i].amount);
         }
         return amounts;
+    }
+    // 🟢 ฟังก์ชันดึงจำนวนทรัพยากร/ทอง จากชื่อหรือไอดีไอเทม
+    public int GetResourceAmount(string itemNameKey)
+    {
+        int totalAmount = 0;
+        for (int i = 0; i < inventorySize; i++)
+        {
+            if (!slots[i].IsEmpty && slots[i].itemData != null)
+            {
+                if (slots[i].itemData.itemName.Contains(itemNameKey) || slots[i].itemData.itemId.Contains(itemNameKey))
+                {
+                    totalAmount += slots[i].amount;
+                }
+            }
+        }
+        return totalAmount;
     }
 
     public void LoadSavedSlots(List<string> savedIds, List<int> savedAmounts)
