@@ -1202,8 +1202,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01d81786c165ee24599d0b439730855d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  healthBarSlider: {fileID: 0}
-  canvasUIParent: {fileID: 0}
+  healthBarSlider: {fileID: 609626994167336271}
+  canvasUIParent: {fileID: 2938624312151358029}
   buildingName: "\u0E2A\u0E34\u0E48\u0E07\u0E01\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07"
   isDestroyedOnDeath: 1
 --- !u!114 &4289250038810588515

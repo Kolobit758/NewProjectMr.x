@@ -138,7 +138,7 @@ public class EnemyController : MonoBehaviour
             {
                 Transform targetT = building != null ? building.transform : hit.transform;
                 float dst = Vector3.Distance(transform.position, targetT.position);
-                if(dst < minBuildingDst)
+                if (dst < minBuildingDst)
                 {
                     minDummyDst = dst;
                     nearestDummy = targetT;

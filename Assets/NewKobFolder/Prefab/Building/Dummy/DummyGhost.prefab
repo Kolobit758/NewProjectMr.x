@@ -803,8 +803,6 @@ GameObject:
   - component: {fileID: 3659270194090054241}
   - component: {fileID: 890759630112313072}
   - component: {fileID: 8436568180443666518}
-  - component: {fileID: 5073363697029779092}
-  - component: {fileID: 4730721826334138853}
   m_Layer: 0
   m_Name: DummyGhost
   m_TagString: Untagged
@@ -906,40 +904,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &5073363697029779092
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6866148867238356644}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 865ef7d266390524980ec8bf7d698e0c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  maxHP: 200
-  maxMana: 50
-  maxStamina: 100
-  currentHP: 0
-  currentMana: 0
-  currentStamina: 0
---- !u!114 &4730721826334138853
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6866148867238356644}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 01d81786c165ee24599d0b439730855d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  healthBarSlider: {fileID: 4586633035211315436}
-  canvasUIParent: {fileID: 8168854349505565134}
-  buildingName: "\u0E2A\u0E34\u0E48\u0E07\u0E01\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07"
-  isDestroyedOnDeath: 1
 --- !u!1 &8168854349505565134
 GameObject:
   m_ObjectHideFlags: 0
