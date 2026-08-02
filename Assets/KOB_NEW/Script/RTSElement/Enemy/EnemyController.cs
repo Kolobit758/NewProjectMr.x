@@ -76,11 +76,15 @@ public class EnemyController : MonoBehaviour
             }
         }
 
-        // 2. เคลื่อนที่เข้าหาหรือโจมตีเป้าหมายปัจจุบัน
-        float distance = Vector3.Distance(transform.position, currentTarget.position);
-        if (distance <= enemyData.attackRange)
+        bool inRange = IsInAttackRange(transform.position, currentTarget.position, enemyData.attackRange);
+
+        if (inRange)
         {
-            agent.isStopped = true;
+            if (agent != null && agent.enabled && agent.isOnNavMesh)
+            {
+                agent.isStopped = true;
+            }
+
             if (Time.time >= lastAttackTime + cooldownDuration)
             {
                 AttackCurrentTarget();
@@ -89,8 +93,11 @@ public class EnemyController : MonoBehaviour
         }
         else
         {
-            agent.isStopped = false;
-            agent.SetDestination(currentTarget.position);
+            if (agent != null && agent.enabled && agent.isOnNavMesh)
+            {
+                agent.isStopped = false;
+                agent.SetDestination(currentTarget.position);
+            }
         }
     }
 
@@ -136,10 +143,12 @@ public class EnemyController : MonoBehaviour
 
             if (isDummy)
             {
+
                 Transform targetT = building != null ? building.transform : hit.transform;
                 float dst = Vector3.Distance(transform.position, targetT.position);
                 if (dst < minBuildingDst)
                 {
+                    Debug.Log("อยู่ในระยะ ตี dummy");
                     minDummyDst = dst;
                     nearestDummy = targetT;
                 }
@@ -154,6 +163,7 @@ public class EnemyController : MonoBehaviour
                 float dst = Vector3.Distance(transform.position, targetT.position);
                 if (dst < minBuildingDst)
                 {
+                    Debug.Log("อยู่ในระยะ ตี vault");
                     minBuildingDst = dst;
                     nearestBuilding = targetT;
                 }
@@ -168,6 +178,7 @@ public class EnemyController : MonoBehaviour
                 float dst = Vector3.Distance(transform.position, targetT.position);
                 if (dst < minCropDst)
                 {
+                    Debug.Log("อยู่ในระยะ ตี cropplots");
                     minCropDst = dst;
                     nearestCrop = targetT;
                 }
@@ -183,6 +194,7 @@ public class EnemyController : MonoBehaviour
                 float dst = Vector3.Distance(transform.position, targetT.position);
                 if (dst < minUnitDst)
                 {
+                    Debug.Log("อยู่ในระยะ ตี unit");
                     minUnitDst = dst;
                     nearestUnit = targetT;
                 }
@@ -313,19 +325,14 @@ public class EnemyController : MonoBehaviour
     }
 
 
-    // ⚔️ ฟังก์ชันโจมตีเป้าหมาย
     void AttackCurrentTarget()
     {
         if (currentTarget == null) return;
 
         int damageInt = Mathf.RoundToInt(enemyData.attackDamage);
 
-        if (currentTarget.TryGetComponent<CharacterStats>(out var targetStats) && !currentTarget.CompareTag("Enemy"))
-        {
-            Debug.Log($"⚔️ [Enemy]: {enemyData.enemyName} โจมตียูนิตฝ่ายเรา! ดาเมจ: {damageInt}");
-            targetStats.TakeDamage(damageInt, transform.position);
-        }
-        else if (currentTarget.TryGetComponent<BuildingHealth>(out var buildingHealth))
+        // 🏢 เช็คตึกก่อน
+        if (currentTarget.TryGetComponent<BuildingHealth>(out var buildingHealth))
         {
             Debug.Log($"🏢 [Enemy]: {enemyData.enemyName} กำลังถล่มสิ่งก่อสร้าง! ดาเมจ: {damageInt}");
             if (currentTarget.TryGetComponent<CharacterStats>(out var buildingStats))
@@ -333,10 +340,19 @@ public class EnemyController : MonoBehaviour
                 buildingStats.TakeDamage(damageInt, transform.position);
             }
         }
+        // 🌾 แล้วค่อยเช็คแปลงพืช
         else if (currentTarget.TryGetComponent<CropPlots>(out var plot))
         {
             Debug.Log($"🌾 [Enemy]: {enemyData.enemyName} กำลังแทะแปลงพืช! ดาเมจ: {damageInt}");
             plot.TakeDamageFromEnemy(damageInt);
+        }
+        // ⚔️ สุดท้ายค่อยเช็คยูนิตเรา (ต้องมีทั้ง UnitBase และ CharacterStats)
+        else if (currentTarget.TryGetComponent<UnitBase>(out var unitBase)
+                 && currentTarget.TryGetComponent<CharacterStats>(out var targetStats)
+                 && !currentTarget.CompareTag("Enemy"))
+        {
+            Debug.Log($"⚔️ [Enemy]: {enemyData.enemyName} โจมตียูนิตฝ่ายเรา! ดาเมจ: {damageInt}");
+            targetStats.TakeDamage(damageInt, transform.position);
         }
     }
 
@@ -370,7 +386,7 @@ public class EnemyController : MonoBehaviour
                 ? hit.GetComponentInParent<UnitBase>().transform
                 : hit.transform;
 
-            float dst = Vector3.Distance(unitTransform.position, attackerPos);
+            float dst = GetHorizontalDistance(transform.position, hit.transform.position);
             if (dst < minDst)
             {
                 minDst = dst;
@@ -404,4 +420,20 @@ public class EnemyController : MonoBehaviour
         Gizmos.color = Color.magenta;
         Gizmos.DrawWireSphere(transform.position, unitInterruptRange);
     }
+    // เพิ่มฟังก์ชันนี้ในคลาส EnemyController
+    #region Hit Range
+    private float GetHorizontalDistance(Vector3 a, Vector3 b)
+    {
+        Vector3 flatA = new Vector3(a.x, 0f, a.z);
+        Vector3 flatB = new Vector3(b.x, 0f, b.z);
+        return Vector3.Distance(flatA, flatB);
+    }
+
+    bool IsInAttackRange(Vector3 selfPos, Vector3 targetPos, float attackRange, float yTolerance = 3f)
+    {
+        float horizontalDst = GetHorizontalDistance(selfPos, targetPos);
+        float yDiff = Mathf.Abs(selfPos.y - targetPos.y);
+        return horizontalDst <= attackRange && yDiff <= yTolerance;
+    }
+    #endregion
 }

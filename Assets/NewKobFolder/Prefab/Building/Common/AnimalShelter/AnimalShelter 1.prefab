@@ -662,7 +662,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 859
+  m_VersionIndex: 862
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -1070,7 +1070,7 @@ Transform:
   m_GameObject: {fileID: 4691649444827491021}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -41.87613, y: 2.11, z: 14.846146}
+  m_LocalPosition: {x: -41.87613, y: 0.2, z: 14.846146}
   m_LocalScale: {x: 9.52, y: 7.46, z: 11.22}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1152,8 +1152,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1.3034651, z: 1}
-  m_Center: {x: 0, y: 0.2733328, z: 0}
+  m_Size: {x: 1, y: 1.3257122, z: 1}
+  m_Center: {x: 0, y: 0.2622068, z: 0}
 --- !u!114 &1416063366663010565
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1218,7 +1218,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27ea99f351dfa0649b1270697df982dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  knockbackDistance: 0.25
+  knockbackDistance: 0
   animationDuration: 0.15
   punchScaleAmount: {x: 1.2, y: 0.8, z: 1.2}
   hitCooldown: 0.1

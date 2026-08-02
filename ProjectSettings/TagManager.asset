@@ -13,6 +13,7 @@ TagManager:
   - Vault
   - GatheringResource
   - Building
+  - Dummy
   layers:
   - Default
   - TransparentFX

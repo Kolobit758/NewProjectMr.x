@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine.AI;
+
 
 /// <summary>
 /// สถานะทั้งหมดของยูนิต — ตัวนี้แหละคือ "แหล่งความจริงเดียว" (single source of truth)
@@ -22,6 +24,30 @@ public enum JobType
     None,
     Gathering,
     Farming
+}
+public enum AutoCareType
+{
+    Water,
+    Fertilize
+}
+
+/// <summary>
+/// ให้ CropPlots ไป implement ทีหลังได้ (ตอนนี้ยังไม่มีก็ไม่เป็นไร โค้ดจะข้ามเฉยๆ)
+/// เพื่อรับค่าว่า "จะใส่ปุ๋ยอะไร" ก่อนสั่ง Interact
+/// </summary>
+public interface IFertilizable
+{
+    void SetFertilizerType(SO_ItemData fertilizerItem);
+}
+
+[System.Serializable]
+public class AutoCareTask
+{
+    public CropPlots targetPlot;
+    public AutoCareType careType;
+    public float intervalSeconds = 60f;
+    public SO_ItemData fertilizerItem; // ใช้เฉพาะตอน careType == Fertilize
+    [HideInInspector] public float timer;
 }
 
 public class UnitBase : MonoBehaviour
@@ -68,6 +94,12 @@ public class UnitBase : MonoBehaviour
     [Header("Auto-Repeat Gathering (เก็บทรัพยากรซ้ำอัตโนมัติ)")]
     public JobType currentJobType = JobType.None;
     private SO_ItemData autoRepeatResourceType;
+    [Header("Auto Upgrades (ปลดล็อกทีละสกิลผ่าน Building Upgrade)")]
+    public bool canAutoGather = false; // สกิล 1: เก็บทรัพยากรซ้ำอัตโนมัติ (ค่าเริ่มต้น = ปิด, เก็บครั้งเดียวจบ)
+    public bool canAutoFarm = false;   // ปลดล็อกให้ unit ดูแลแปลง (patrol/water/fertilize) เองได้
+
+    [Header("Auto Care Tasks (สกิล 2-3: รดน้ำ/ใส่ปุ๋ยตามเวลา ต่อแปลง)")]
+    public List<AutoCareTask> autoCareTasks = new List<AutoCareTask>();
 
     [Header("Combat (priority ต่ำสุด)")]
     public float attackRange = 2f;
@@ -94,16 +126,22 @@ public class UnitBase : MonoBehaviour
         // AnimalStatsManager animal = transform.GetComponent<AnimalStatsManager>();
     }
 
-    void Start() // 🟢 เปลี่ยนมาใช้ Start หรือสร้างฟังก์ชัน Setup แยก
+    void Start()
     {
         animalStatsManager = GetComponent<AnimalStatsManager>();
 
+        // 🟢 ตรวจสอบและรับค่าสกิลที่ปลดล็อกแล้วจากส่วนกลางทันทีที่เกิด
+        if (BuildingUnlockManager.Instance != null)
+        {
+            BuildingUnlockManager.Instance.ApplyUnlocksToNewUnit(this);
+        }
     }
 
     void Update()
     {
         RunStateMachine();
         UpdateRopeVisual();
+        TickAutoCareTasks();
     }
 
     private void RunStateMachine()
@@ -138,29 +176,31 @@ public class UnitBase : MonoBehaviour
                 return;
             }
 
-            // 🟢 [Auto-Repeat]: รองรับ ResourceNodeBase ทั่วไป
+            // 🔒 [Auto-Repeat Gathering]: ทำงานเฉพาะตอนปลดล็อก canAutoGather แล้วเท่านั้น
             if (currentJobType == JobType.Gathering)
             {
-                if (gatBase != null && gatBase.canGathering)
+                if (!canAutoGather)
+                {
+                    // ยังไม่ปลดล็อก -> เก็บของครั้งเดียวจบ ไม่วนซ้ำอัตโนมัติ
+                    currentJobType = JobType.None;
+                    autoRepeatResourceType = null;
+                }
+                else if (gatBase != null && gatBase.canGathering)
                 {
                     CommandGather(gatBase);
                     return;
                 }
-                else
+                else if (TryFindMatchingResourceNearLastBase(out ResourceNodeBase nearbyNode))
                 {
-                    if (TryFindMatchingResourceNearLastBase(out ResourceNodeBase nearbyNode))
-                    {
-                        CommandGather(nearbyNode);
-                        return;
-                    }
+                    CommandGather(nearbyNode);
+                    return;
                 }
             }
 
-            // 🟢 [Auto-Repeat]: สำหรับ Farming ให้วนลูปปลูกผักต่อถ้าร่วงกลับมาสถานะ Idle (เช่น ของในโกดังหมดชั่วคราว)
+            // 🔒 [Auto Farming Patrol]: ปิดไว้ก่อนจนกว่าจะปลดล็อก canAutoFarm
             if (currentJobType == JobType.Farming)
             {
-                CommandFarmingPatrol();
-                return;
+                currentJobType = JobType.None; // เคลียร์ job เดิม ไม่วนลูปฟาร์มเอง
             }
 
             TryFindAndExecuteNearbyTask();
@@ -280,7 +320,8 @@ public class UnitBase : MonoBehaviour
 
         if (fetchVault == null || fetchItemData == null)
         {
-            ChangeState(UnitBehavior.MovingToOrder);
+            Debug.LogWarning($"⚠️ [Fetch] {name}: หา Vault ไม่เจอ หรือไม่มีข้อมูลไอเทมที่จะเบิก ({(itemData != null ? itemData.itemName : "null")}) — ยกเลิกงานนี้ กลับ Idle");
+            CancelOrderDueToFetchFailure();
             return;
         }
 
@@ -303,6 +344,28 @@ public class UnitBase : MonoBehaviour
             currentOrder = null;
         }
         StopAllCoroutines();
+    }
+
+    /// <summary>
+    /// 🟢 [แก้บั๊ก] เรียกตอนไปเบิกของไม่สำเร็จ (หา Vault ไม่เจอ หรือของในคลังไม่พอ)
+    /// ต่างจาก AbandonCurrentOrder ตรงที่ "ไม่" เรียก StopAllCoroutines()
+    /// เพราะฟังก์ชันนี้อาจถูกเรียกจากภายใน coroutine ที่กำลังรันอยู่เอง (WaitUntilReachVaultAndReturn)
+    /// การ StopAllCoroutines() ตัวเองระหว่างรันอาจทำให้พฤติกรรมเพี้ยนได้ จึงแค่เคลียร์ state ตรงๆ พอ
+    ///
+    /// สำคัญ: ต้องเคลียร์ currentOrder ให้เป็น null เสมอ ไม่งั้น TickAutoCareTasks() จะเห็นว่า
+    /// ยูนิตยัง "มี Order ค้างอยู่" (HasOrder == true) แล้วไม่ยอมมอบงานใหม่ให้อีกเลย ทั้งที่จริงว่างงานอยู่
+    /// </summary>
+    private void CancelOrderDueToFetchFailure()
+    {
+        if (currentOrder != null)
+        {
+            currentOrder.OnUnitExit(this); // ปลดล็อก isBeingServiced ของแปลง ให้คนอื่น/รอบถัดไปมาทำต่อได้
+            currentOrder = null;
+        }
+
+        currentJobType = JobType.None;
+        agent.isStopped = false;
+        ChangeState(UnitBehavior.Idle);
     }
 
     public void SetSelected(bool value)
@@ -488,7 +551,10 @@ public class UnitBase : MonoBehaviour
         }
         else
         {
-            ChangeState(UnitBehavior.Idle);
+            // 🟢 [แก้บั๊ก] เดิมโค้ดตรงนี้แค่ ChangeState(Idle) เฉยๆ แต่ไม่เคลียร์ currentOrder
+            // ทำให้ยูนิตค้าง "มี Order" ตลอดไป และ TickAutoCareTasks() จะไม่มอบงานใหม่ให้อีกเลย
+            Debug.LogWarning($"⚠️ [Fetch] {name}: ในคลังไม่มี '{fetchItemData.itemName}' พอ (ต้องการ {fetchAmount}) — ยกเลิกงานนี้ กลับ Idle เพื่อรอรอบถัดไป");
+            CancelOrderDueToFetchFailure();
         }
     }
 
@@ -616,7 +682,7 @@ public class UnitBase : MonoBehaviour
         if (enemyStats.currentHP <= 0)
         {
             currentAttackTarget = null;
-            
+
             agent.isStopped = false;
             ChangeState(UnitBehavior.Idle);
         }
@@ -627,7 +693,7 @@ public class UnitBase : MonoBehaviour
     public void CommandFarmingPatrol()
     {
         if (isSleepingInShelter) return; // 🔒 กำลังหลับอยู่ สั่งงานไม่ได้
-
+        if (!canAutoFarm) return;
         AbandonCurrentOrder();
         currentJobType = JobType.Farming;
         ChangeState(UnitBehavior.FarmingPatrol);
@@ -753,5 +819,71 @@ public class UnitBase : MonoBehaviour
 
     }
 
+    #region Auto Care (Water / Fertilize) Scheduling
+    private void TickAutoCareTasks()
+    {
+        if (autoCareTasks.Count == 0) return;
 
+        bool canTakeNewTask = canAutoFarm
+            && currentState == UnitBehavior.Idle
+            && !HasOrder
+            && !isCarrying
+            && !isSleepingInShelter;
+
+        foreach (var task in autoCareTasks)
+        {
+            if (task.targetPlot == null) continue;
+
+            task.timer -= Time.deltaTime;
+            if (task.timer > 0f) continue;
+            if (!canTakeNewTask) continue; // ถึงเวลาแล้วแต่ตัวไม่ว่าง รอรอบถัดไป
+
+            task.timer = task.intervalSeconds; // รีเซ็ตนับใหม่ทันทีตอนออกเดินทาง
+
+            if (task.careType == AutoCareType.Fertilize)
+            {
+                (task.targetPlot as IFertilizable)?.SetFertilizerType(task.fertilizerItem);
+            }
+
+            CommandInteract(task.targetPlot);
+            canTakeNewTask = false; // ต่อเฟรมเดียว ให้ทำได้แค่ 1 งาน
+        }
+    }
+
+    public void AssignAutoWaterTask(CropPlots plot, float intervalSeconds)
+    {
+        if (plot == null) return;
+        RemoveAutoCareTask(plot);
+        autoCareTasks.Add(new AutoCareTask
+        {
+            targetPlot = plot,
+            careType = AutoCareType.Water,
+            intervalSeconds = intervalSeconds,
+            timer = intervalSeconds
+        });
+    }
+
+    public void AssignAutoFertilizeTask(CropPlots plot, float intervalSeconds, SO_ItemData fertilizerType)
+    {
+        if (plot == null) return;
+        RemoveAutoCareTask(plot);
+        autoCareTasks.Add(new AutoCareTask
+        {
+            targetPlot = plot,
+            careType = AutoCareType.Fertilize,
+            intervalSeconds = intervalSeconds,
+            fertilizerItem = fertilizerType,
+            timer = intervalSeconds
+        });
+    }
+
+    public void RemoveAutoCareTask(CropPlots plot)
+    {
+        autoCareTasks.RemoveAll(t => t.targetPlot == plot);
+    }
+
+    // เรียกจากตึกอัพเกรด/UI ปลดล็อกสกิล
+    public void SetAutoGatherUpgrade(bool unlocked) => canAutoGather = unlocked;
+    public void SetAutoFarmUpgrade(bool unlocked) => canAutoFarm = unlocked;
+    #endregion
 }

@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ff10967e5a1d4b144990992e47328442, type: 3}
-  m_Name: Dummy
+  m_Name: AutoGather
   m_EditorClassIdentifier: 
-  itemId: Dummy
-  itemName: Dummy
+  itemId: AutoGather
+  itemName: AutoGather
   itemType: 2
   itemIcon: {fileID: 0}
-  detail: Draw the enemy's attention to attack.
-  dropItemPrefab: {fileID: 6532659055434084778, guid: 5499ad09584eb714ea33d38e36b4ff72, type: 3}
-  buildingGhostPrefab: {fileID: 6866148867238356644, guid: 8d328b8d484eac94481a3917f7ce4ef7, type: 3}
-  Realprefab: {fileID: 6532659055434084778, guid: 5499ad09584eb714ea33d38e36b4ff72, type: 3}
+  detail: 
+  dropItemPrefab: {fileID: 8678928837646436691, guid: f06ecd8cc37bd7e45bb82f46c93acd91, type: 3}
+  buildingGhostPrefab: {fileID: 536622944438748607, guid: dcbac90a762b68c42902634ca4bcdb97, type: 3}
+  Realprefab: {fileID: 8678928837646436691, guid: f06ecd8cc37bd7e45bb82f46c93acd91, type: 3}
   requiredResources:
   - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
     amount: 5

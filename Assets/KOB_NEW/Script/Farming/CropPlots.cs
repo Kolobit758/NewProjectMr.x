@@ -4,7 +4,7 @@ using System.Collections; // 🟢 จำเป็นต้องใช้สำ�
 // 🟢 อัปเกรดสถานะให้ละเอียดขึ้นตามลำดับการปลูก
 public enum CropStage { Empty, NeedsFertilizer, NeedsWater, Growing, ReadyToHarvest }
 
-public class CropPlots : MonoBehaviour, ITaskable // 🟢 ต้องใส่ ITaskable ให้ยูนิตคุยได้
+public class CropPlots : MonoBehaviour, ITaskable, IFertilizable // 🟢 เพิ่ม IFertilizable ให้ SetFertilizerType ทำงานจริง
 {
     [Header("Current Status")]
     public CropStage currentStage = CropStage.Empty;
@@ -26,6 +26,12 @@ public class CropPlots : MonoBehaviour, ITaskable // 🟢 ต้องใส่ 
 
     [Header("AI Lock")]
     public bool isBeingServiced = false; // 🟢 ล็อคไว้กันเรียกยูนิตซ้ำซ้อน
+
+    [Header("Dedicated Worker (จาก CropPlotsGroup)")]
+    [Tooltip("true เมื่อแปลงนี้มีคนงานประจำถูกมอบหมายมาดูแลแล้ว (ผ่าน CropPlotsGroup.ApplySettingsToWorker) " +
+             "ระบบ auto-call ยูนิตว่างงานตัวอื่นแบบสุ่มด้านล่างจะถูกปิด เพื่อไม่ให้แย่งงานกับคนงานประจำ")]
+    public bool hasDedicatedWorker = false;
+
     [Header("Soil & Nutrient System (ระบบธาตุอาหารในดิน)")]
     public NutrientData currentSoilNutrients; // ธาตุอาหาร N, P, K สะสมในดินของแปลงนี้
     public SO_FertilizerData appliedFertilizer; // ปุ๋ยล่าสุดที่ใส่ลงแปลง
@@ -53,8 +59,9 @@ public class CropPlots : MonoBehaviour, ITaskable // 🟢 ต้องใส่ 
         // 🟢 ถ้ารอน้ำอยู่ ให้กวักมือเรียกยูนิตที่ว่างงานแถวนั้นแบบ Auto!
         else if (currentStage == CropStage.NeedsWater)
         {
-            // 🟢 ถ้ายังไม่มีใครกำลังเดินมาช่วย และหมดคูลดาวน์ ถึงจะเรียก
-            if (!isBeingServiced)
+            // 🔒 ถ้ามีคนงานประจำดูแลแปลงนี้อยู่แล้ว (hasDedicatedWorker) ไม่ต้องสุ่มเรียกคนอื่นมาซ้ำ
+            // ปล่อยให้ AutoCareTask ของคนงานประจำจัดการตามรอบเวลาของมันเอง
+            if (!isBeingServiced && !hasDedicatedWorker)
             {
                 autoCallCooldown -= Time.deltaTime;
                 if (autoCallCooldown <= 0f)
@@ -294,6 +301,22 @@ public class CropPlots : MonoBehaviour, ITaskable // 🟢 ต้องใส่ 
 
     // 🟢 จำเป็นต้องมีสำหรับ ITaskable
     public Vector3 GetInteractionPoint() => transform.position;
+
+    /// <summary>
+    /// 🟢 [แก้บั๊ก] Implement ของจริงให้ IFertilizable — เดิม interface นี้ประกาศไว้ใน UnitBase.cs
+    /// แต่ CropPlots ไม่เคย implement มันเลย ทำให้ (task.targetPlot as IFertilizable)?.SetFertilizerType(...)
+    /// ใน UnitBase.TickAutoCareTasks() cast ไม่ผ่านและไม่ทำอะไรเลยแบบเงียบๆ ผลคือปุ๋ยที่เลือกจาก
+    /// CropPlotsGroup/แผง UI ไม่เคยถูกส่งมาถึงแปลงจริง สุดท้ายแปลงใช้ fertilizerItemData ที่ตั้งค้างไว้
+    /// ใน Inspector ของตัวเองแทน (เช่น "Fertilizer01" ที่ไม่มีในคลัง)
+    ///
+    /// ตอนนี้พอ implement แล้ว ทุกครั้งที่คนงานประจำจะไปใส่ปุ๋ยตามรอบ AutoCareTask ระบบจะเซ็ต
+    /// fertilizerItemData ของแปลงนี้ให้ตรงกับปุ๋ยที่ตั้งไว้ในกลุ่มก่อนเสมอ
+    /// </summary>
+    public void SetFertilizerType(SO_ItemData fertilizerItem)
+    {
+        if (fertilizerItem == null) return;
+        fertilizerItemData = fertilizerItem;
+    }
 
     #region Destroy Product
     // 🟢 ฟังก์ชันให้แปลงผักรับดาเมจจากศัตรูที่เข้ามาบุกแทะ

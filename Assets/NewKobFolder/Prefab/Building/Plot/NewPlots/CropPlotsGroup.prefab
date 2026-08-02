@@ -289,6 +289,7 @@ GameObject:
   - component: {fileID: 2869176644147550184}
   - component: {fileID: 4020319817833185967}
   - component: {fileID: -4119488733637769542}
+  - component: {fileID: -4467042411604419778}
   m_Layer: 0
   m_Name: CropPlotsGroup
   m_TagString: Building
@@ -388,8 +389,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1.344309, z: 1}
-  m_Center: {x: 0, y: 0.15581298, z: 0}
+  m_Size: {x: 1, y: 1.4255313, z: 1}
+  m_Center: {x: 0, y: 0.11520188, z: 0}
 --- !u!114 &4020319817833185967
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -424,6 +425,25 @@ MonoBehaviour:
   canvasUIParent: {fileID: 2908736522856563123}
   buildingName: "\u0E2A\u0E34\u0E48\u0E07\u0E01\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07"
   isDestroyedOnDeath: 1
+--- !u!114 &-4467042411604419778
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2608169235056299696}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98cbabad60618454683d6da514fcb268, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  plots: []
+  careEnabledWater: 1
+  waterIntervalSeconds: 300
+  careEnabledFertilize: 0
+  fertilizeIntervalSeconds: 600
+  fertilizerItem: {fileID: 0}
+  assignedWorkers: []
 --- !u!1 &2908736522856563123
 GameObject:
   m_ObjectHideFlags: 0

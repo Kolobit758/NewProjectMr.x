@@ -5,6 +5,36 @@ using UnityEngine.EventSystems;
 public class RTS_movement : MonoBehaviour
 {
     public static RTS_movement instance;
+
+    // 🟢 [ใหม่] Event นี้จะยิงทุกครั้งที่ "ผลลัพธ์การเลือก" เปลี่ยนไป
+    // ไม่ว่าจะคลิกเดี่ยว, ลากคลุมกล่อง, หรือคลิกพื้นที่ว่างเพื่อยกเลิกทั้งหมด
+    // UI แผงสกิลจะ subscribe ตัวนี้เพื่อโชว์/ซ่อนตัวเอง และรู้ว่าต้องตั้งค่ากับ unit ไหนบ้าง
+    public static event System.Action<List<UnitBase>> OnSelectionChanged;
+
+    // 🟢 [ใหม่] "โหมดชี้เป้า" สำหรับสกิลที่ต้องคลิกจุดในโลกก่อน (เช่น Set Auto Care ที่ต้องคลิกแปลง)
+    // ตอนอยู่ในโหมดนี้ คลิกขวาจะไม่สั่ง MoveSelectedUnits ตามปกติ แต่จะยิง callback กลับไปให้ UI แทน
+    private bool _isInTargetMode = false;
+    private System.Action<RaycastHit> _pendingTargetCallback;
+
+    /// <summary>เริ่มโหมดรอคลิกเป้าหมายในโลก (เรียกจาก UI ตอนกดปุ่มสกิลที่ต้องระบุจุด)</summary>
+    public void BeginTargetMode(System.Action<RaycastHit> onTargetPicked)
+    {
+        _isInTargetMode = true;
+        _pendingTargetCallback = onTargetPicked;
+    }
+
+    /// <summary>ยกเลิกโหมดชี้เป้า (เรียกเองได้ เช่น ตอนกด Esc หรือกดปุ่มสกิลซ้ำเพื่อยกเลิก)</summary>
+    public void CancelTargetMode()
+    {
+        _isInTargetMode = false;
+        _pendingTargetCallback = null;
+    }
+
+    public bool IsInTargetMode => _isInTargetMode;
+
+    // 🟢 [ใหม่] ยิงตอนคลิกซ้าย "เดี่ยว" โดนแปลงเกษตร (ไม่ใช่ unit) — ให้ FarmPlotPanelUI ไปโชว์แผงตั้งค่า
+    public static event System.Action<CropPlotsGroup> OnFarmPlotClicked;
+
     [Header("Camera Settings")]
     public Camera cam;
     public float panSpeed = 20f;
@@ -53,11 +83,43 @@ public class RTS_movement : MonoBehaviour
         HandleSelection();
         HandleZoom();
 
+        // 🟢 กด Esc เพื่อยกเลิกโหมดชี้เป้าได้ตลอดเวลา
+        if (_isInTargetMode && Input.GetKeyDown(KeyCode.Escape))
+        {
+            CancelTargetMode();
+        }
+
         if (Input.GetMouseButtonDown(1))
         {
-            bool isPlacing = GridPlacementManager.Instance != null && GridPlacementManager.Instance.IsPlacementModeActive;
-            if (!isPlacing)
-                MoveSelectedUnits();
+            if (_isInTargetMode)
+            {
+                HandleAbilityTargetClick();
+            }
+            else
+            {
+                bool isPlacing = GridPlacementManager.Instance != null && GridPlacementManager.Instance.IsPlacementModeActive;
+                if (!isPlacing)
+                    MoveSelectedUnits();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 🟢 ตอนอยู่ในโหมดชี้เป้า คลิกขวาครั้งถัดไปในโลกจะถูกส่งกลับไปให้ผู้ที่เรียก BeginTargetMode
+    /// (เช่น UnitAbilityPanelUI ตอนกด "Set Auto Care" แล้วรอผู้เล่นคลิกแปลง)
+    /// </summary>
+    private void HandleAbilityTargetClick()
+    {
+        Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+        if (Physics.Raycast(ray, out RaycastHit hit, 1000f))
+        {
+            var callback = _pendingTargetCallback;
+            CancelTargetMode(); // เคลียร์โหมดก่อนเรียก callback กันเผื่อ callback สั่งเริ่มโหมดใหม่ซ้อน
+            callback?.Invoke(hit);
+        }
+        else
+        {
+            CancelTargetMode();
         }
     }
 
@@ -197,10 +259,17 @@ public class RTS_movement : MonoBehaviour
     {
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);
         UnitBase clickedUnit = null;
+        CropPlotsGroup clickedFarmGroup = null;
 
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
             clickedUnit = hit.collider.GetComponentInParent<UnitBase>();
+
+            // 🟢 ไม่โดน unit ให้ลองเช็คว่าโดนแปลงเกษตร (เดี่ยว หรือ กลุ่ม) หรือเปล่า
+            if (clickedUnit == null)
+            {
+                clickedFarmGroup = ResolveFarmGroupFromHit(hit);
+            }
         }
 
         if (!additive)
@@ -215,6 +284,35 @@ public class RTS_movement : MonoBehaviour
         {
             clickedUnit.SetSelected(true);
         }
+
+        // 🟢 แจ้งทุกคนที่ subscribe (เช่น แผง UI สกิล) ว่าผลการเลือกล่าสุดคือใครบ้าง
+        BroadcastSelectionChanged();
+
+        if (clickedFarmGroup != null)
+        {
+            OnFarmPlotClicked?.Invoke(clickedFarmGroup);
+        }
+    }
+
+    /// <summary>
+    /// 🟢 หา CropPlotsGroup จากจุดที่คลิก — รองรับทั้งกรณีคลิกโดนกลุ่มที่ตั้งค่าไว้แล้ว
+    /// และกรณีคลิกโดนแปลงเดี่ยวๆ ที่ยังไม่มีกลุ่ม (จะสร้างกลุ่มขนาด 1 แปลงให้อัตโนมัติ)
+    /// </summary>
+    private CropPlotsGroup ResolveFarmGroupFromHit(RaycastHit hit)
+    {
+        CropPlotsGroup group = hit.collider.GetComponentInParent<CropPlotsGroup>();
+        if (group != null) return group;
+
+        CropPlots singlePlot = hit.collider.GetComponentInParent<CropPlots>();
+        if (singlePlot == null) return null;
+
+        group = singlePlot.GetComponent<CropPlotsGroup>();
+        if (group == null)
+        {
+            group = singlePlot.gameObject.AddComponent<CropPlotsGroup>();
+            group.plots = new List<CropPlots> { singlePlot };
+        }
+        return group;
     }
 
     void SelectBox(bool additive)
@@ -245,6 +343,28 @@ public class RTS_movement : MonoBehaviour
                 unit.SetSelected(true);
             }
         }
+
+        // 🟢 แจ้งทุกคนที่ subscribe ว่าผลการลากคลุมล่าสุดคือใครบ้าง
+        BroadcastSelectionChanged();
+    }
+
+    /// <summary>
+    /// 🟢 รวบรวม unit ที่ isSelected == true ทั้งหมดตอนนี้ แล้วยิง event ออกไป
+    /// เรียกทุกครั้งหลังจบการเลือก (คลิกเดี่ยว / ลากกล่อง) เพื่อให้ UI sync ตามจริงเสมอ
+    /// </summary>
+    private void BroadcastSelectionChanged()
+    {
+        List<UnitBase> selected = allUnits.FindAll(u => u != null && u.isSelected);
+        OnSelectionChanged?.Invoke(selected);
+    }
+
+    /// <summary>
+    /// 🟢 เผื่อกรณีอื่นอยากจะดึง "รายชื่อ unit ที่ถูกเลือกอยู่ตอนนี้" แบบ on-demand
+    /// (เช่น ปุ่มใน UI ที่ไม่ได้ subscribe event แต่กดแล้วอยากรู้ทันที)
+    /// </summary>
+    public List<UnitBase> GetCurrentlySelectedUnits()
+    {
+        return allUnits.FindAll(u => u != null && u.isSelected);
     }
 
     void UpdateSelectionBox(Vector2 currentMousePos)

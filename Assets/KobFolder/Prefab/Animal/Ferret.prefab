@@ -1021,6 +1021,9 @@ MonoBehaviour:
   defaultSpeed: 0
   autoTaskScanRadius: 10
   currentJobType: 0
+  canAutoGather: 0
+  canAutoFarm: 0
+  autoCareTasks: []
   attackRange: 2
   attackCooldown: 1.5
   damage: 10
@@ -1076,8 +1079,8 @@ LineRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_Positions:
-  - {x: 19.378448, y: 0.28323334, z: -11.577576}
-  - {x: 19.5, y: 3.93, z: -11.5}
+  - {x: 22.76831, y: 0.28323334, z: -29.647186}
+  - {x: -2.775, y: 0.3299997, z: -13.79}
   m_Parameters:
     serializedVersion: 3
     widthMultiplier: 1

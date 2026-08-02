@@ -11,6 +11,11 @@ public class GridPlacementManager : MonoBehaviour
     public float cellSize = 1f;
     public LayerMask placementLayer;
 
+    [Header("Height Adjustment")]
+    public float manualYOffset = 0f;           // 🟢 ปรับ global ใน Inspector ได้ (ปรับตายตัวถ้าตึกส่วนใหญ่ลอย/จมเท่ากัน)
+    public float fineTuneStep = 0.05f;         // 🟢 ระยะขยับต่อการกดปุ่ม/scroll 1 ครั้ง
+    private float currentFineTuneOffset = 0f;  // 🟢 offset ที่ปรับสดตอน placement (reset ทุกครั้งที่เริ่มวางใหม่)
+
     private GameObject currentGhost;
     private SO_Building currentBuildingData;
     public Material ghostMaterial;
@@ -28,6 +33,7 @@ public class GridPlacementManager : MonoBehaviour
     {
         if (!isPlacementMode) return;
 
+        HandleFineTuneInput(); // 🟢 เช็ค input ปรับความสูงก่อน แล้วค่อย update ตำแหน่ง
         UpdateGhostPosition();
 
         if (Input.GetMouseButtonDown(0))
@@ -44,6 +50,25 @@ public class GridPlacementManager : MonoBehaviour
         }
     }
 
+    // 🟢 ปรับความสูงสดๆ ระหว่าง placement ด้วย PageUp/PageDown หรือ scroll wheel
+    private void HandleFineTuneInput()
+    {
+        if (Input.GetKeyDown(KeyCode.PageUp))
+        {
+            currentFineTuneOffset += fineTuneStep;
+        }
+        else if (Input.GetKeyDown(KeyCode.PageDown))
+        {
+            currentFineTuneOffset -= fineTuneStep;
+        }
+
+        float scroll = Input.mouseScrollDelta.y;
+        if (Mathf.Abs(scroll) > 0.01f)
+        {
+            currentFineTuneOffset += scroll * fineTuneStep;
+        }
+    }
+
     public void StartPlacementManager(GameObject ghostPrefab, SO_Building buildingData)
     {
         // แก้ชื่อเมธอดให้ตรงกันถ้ามีการเรียกใช้จากข้างนอก หรือคงชื่อ StartPlacementMode ไว้ตามเดิม
@@ -54,6 +79,7 @@ public class GridPlacementManager : MonoBehaviour
         if (currentGhost != null) Destroy(currentGhost);
 
         currentBuildingData = buildingData;
+        currentFineTuneOffset = 0f; // 🟢 reset ทุกครั้งที่เริ่มวางตึกใหม่
         currentGhost = InstantiatingGhost(ghostPrefab);
         isPlacementMode = true;
     }
@@ -71,7 +97,6 @@ public class GridPlacementManager : MonoBehaviour
 
         ghost.layer = LayerMask.NameToLayer("Ignore Raycast");
 
-        // 🟢 แก้ไขจุดที่ 1: คำนวณ Offset จาก Mesh/Renderer โดยอ้างอิงจาก Pivot ของ Object โดยตรง
         ghostPivotOffsetY = CalculatePivotToBottomOffset(ghost);
 
         return ghost;
@@ -88,12 +113,9 @@ public class GridPlacementManager : MonoBehaviour
             bounds.Encapsulate(r.bounds);
         }
 
-        // แปลงค่า World Bounds min.y ให้เทียบกับ Position ของ Object ในตอนนั้น
-        // เพื่อให้รู้ว่าฐานล่างสุดอยู่ต่ำกว่า Pivot เท่าไหร่ในหน่วย World Space
         float bottomY = bounds.min.y;
         float pivotY = obj.transform.position.y;
 
-        // ถ้า pivot อยู่ตรงกลางหรือด้านบน ฐานล่างสุดจะติดลบเมื่อเทียบกับ pivot เราจึงดึงระยะห่างออกมา
         return pivotY - bottomY;
     }
 
@@ -108,9 +130,8 @@ public class GridPlacementManager : MonoBehaviour
         {
             Vector3 gridPos = SnapToGrid(hit.point);
 
-            // 🟢 แก้ไขจุดนี้: เอาความสูงพื้นผิวบวกกับ Offset ของ Pivot ที่คำนวณไว้
-            // มันจะช่วยดันตัวตึกขึ้นมาให้อยู่บนพื้นพอดี ไม่จมลงไปครับ
-            gridPos.y = hit.point.y + ghostPivotOffsetY;
+            // 🟢 รวม offset ทั้งหมด: พื้นผิว + offset ที่คำนวณจาก mesh + manual global + fine-tune สด
+            gridPos.y = hit.point.y + ghostPivotOffsetY + manualYOffset + currentFineTuneOffset;
 
             currentGhost.transform.position = gridPos;
             currentGhost.SetActive(true);

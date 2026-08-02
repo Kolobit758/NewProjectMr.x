@@ -17,9 +17,9 @@ MonoBehaviour:
   itemType: 2
   itemIcon: {fileID: 0}
   detail: 
-  dropItemPrefab: {fileID: 4691649444827491021, guid: 706d78465e48f7c4ab7a562b9c9c552f, type: 3}
-  buildingGhostPrefab: {fileID: 8265592295451246131, guid: 2c72f997332c21244bf1e11e055484a0, type: 3}
-  Realprefab: {fileID: 4691649444827491021, guid: 706d78465e48f7c4ab7a562b9c9c552f, type: 3}
+  dropItemPrefab: {fileID: 4744025826505355388, guid: 9de088f96c7882b4e898cc7e6c253a36, type: 3}
+  buildingGhostPrefab: {fileID: 6111131003647873446, guid: 873e6e2231184e94ea1fff09c52ca908, type: 3}
+  Realprefab: {fileID: 4744025826505355388, guid: 9de088f96c7882b4e898cc7e6c253a36, type: 3}
   requiredResources:
   - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
     amount: 2

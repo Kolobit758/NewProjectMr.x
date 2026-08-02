@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ff10967e5a1d4b144990992e47328442, type: 3}
-  m_Name: Dummy
+  m_Name: AutoFarm
   m_EditorClassIdentifier: 
-  itemId: Dummy
-  itemName: Dummy
+  itemId: AutoFarm
+  itemName: AutoFarm
   itemType: 2
   itemIcon: {fileID: 0}
-  detail: Draw the enemy's attention to attack.
-  dropItemPrefab: {fileID: 6532659055434084778, guid: 5499ad09584eb714ea33d38e36b4ff72, type: 3}
-  buildingGhostPrefab: {fileID: 6866148867238356644, guid: 8d328b8d484eac94481a3917f7ce4ef7, type: 3}
-  Realprefab: {fileID: 6532659055434084778, guid: 5499ad09584eb714ea33d38e36b4ff72, type: 3}
+  detail: 
+  dropItemPrefab: {fileID: 6633277869817443924, guid: a9db47d1f1a991c4d8aa3c1291456a10, type: 3}
+  buildingGhostPrefab: {fileID: 9015861077549455752, guid: c9d9c2db1706bc94b8330058c92ff7cc, type: 3}
+  Realprefab: {fileID: 6633277869817443924, guid: a9db47d1f1a991c4d8aa3c1291456a10, type: 3}
   requiredResources:
   - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
     amount: 5

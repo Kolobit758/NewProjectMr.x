@@ -85,7 +85,7 @@ public class GhostBuilding : MonoBehaviour, ITaskable
 
     public Vector3 GetInteractionPoint()
     {
-
+        
         return transform.position;
     }
 }
