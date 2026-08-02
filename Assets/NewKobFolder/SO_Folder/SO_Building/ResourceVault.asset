@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff10967e5a1d4b144990992e47328442, type: 3}
+  m_Name: ResourceVault
+  m_EditorClassIdentifier: 
+  itemId: ResourceVault
+  itemName: ResourceVault
+  itemType: 2
+  itemIcon: {fileID: 0}
+  detail: 
+  dropItemPrefab: {fileID: 0}
+  buildingGhostPrefab: {fileID: 7074387166818058431, guid: 3c361a317e84a9445b812a80b8bb3e0c, type: 3}
+  Realprefab: {fileID: 7074387166818058431, guid: 96f8f707f8f492247ad67ade87a211bb, type: 3}
+  requiredResources:
+  - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
+    amount: 5

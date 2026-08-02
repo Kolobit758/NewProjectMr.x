@@ -7,6 +7,7 @@ public class HouseUpgradeManager : MonoBehaviour
 
     [Header("House State")]
     public int houseLevel = 1;
+    public int HouseLevel => houseLevel;
 
     [Header("Visual References")]
     public GameObject houseLevel1Visual;
@@ -46,6 +47,10 @@ public class HouseUpgradeManager : MonoBehaviour
         if (houseLevel >= 2)
         {
             Debug.Log("House is already Level 2.");
+            if (HUDController.Instance != null)
+            {
+                HUDController.Instance.ShowPopup("House is already Level 2", "Prototype Complete is already unlocked.");
+            }
             return;
         }
 
@@ -65,7 +70,12 @@ public class HouseUpgradeManager : MonoBehaviour
         RefreshVisuals();
         RefreshUI();
 
-        InventoryManager.Instance.ShowDiscoveryMessage("Prototype Complete: House Level 2!");
+        if (HUDController.Instance != null)
+        {
+            HUDController.Instance.ShowPrototypeComplete();
+        }
+
+        InventoryManager.Instance.ShowDiscoveryMessage("House upgraded to Level 2!");
         Debug.Log("Prototype Complete: House upgraded to Level 2.");
     }
 

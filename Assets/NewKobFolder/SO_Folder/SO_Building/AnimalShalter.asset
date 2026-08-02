@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff10967e5a1d4b144990992e47328442, type: 3}
+  m_Name: AnimalShalter
+  m_EditorClassIdentifier: 
+  itemId: AnimalShalter
+  itemName: AnimalShalter
+  itemType: 2
+  itemIcon: {fileID: 0}
+  detail: 
+  dropItemPrefab: {fileID: 4744025826505355388, guid: 9de088f96c7882b4e898cc7e6c253a36, type: 3}
+  buildingGhostPrefab: {fileID: 6111131003647873446, guid: 873e6e2231184e94ea1fff09c52ca908, type: 3}
+  Realprefab: {fileID: 4744025826505355388, guid: 9de088f96c7882b4e898cc7e6c253a36, type: 3}
+  requiredResources:
+  - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
+    amount: 2

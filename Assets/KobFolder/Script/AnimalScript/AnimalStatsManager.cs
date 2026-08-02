@@ -13,14 +13,17 @@ public class AnimalStatsManager : MonoBehaviour
     [Header("original stats")]
     private float originSpeed;
 
+    public float damage;
     [SerializeField] private Slider hpBar;
     [SerializeField] private Slider staminaBar;
+    [Header("Fallback Template")]
+    public UnitDataSO defaultTemplate; // 🟢 ลาก SO มาใส่ตรงนี้เผื่อไว้ได้เลยใน Inspector
 
     void OnEnable()
     {
         Stats.OnStaminaChanged += OnOutOfEnergy;
         Stats.OnStaminaChanged += OnFullFillEnergy;
-        
+
         // [เปลี่ยน UI]
         Stats.OnHPChanged += ChangeHpStaminaUI;
         Stats.OnStaminaChanged += ChangeHpStaminaUI;
@@ -30,10 +33,12 @@ public class AnimalStatsManager : MonoBehaviour
         Stats.OnStaminaChanged -= OnOutOfEnergy;   // <--- ลบออก ถูกต้อง
         Stats.OnStaminaChanged -= OnFullFillEnergy;  // <--- อ้าว! ดันไปบวกเพิ่มซ้ำตอนปิดซะงั้น!
 
-                // [เปลี่ยน UI]
+        // [เปลี่ยน UI]
         Stats.OnHPChanged -= ChangeHpStaminaUI;
         Stats.OnStaminaChanged -= ChangeHpStaminaUI;
     }
+
+
 
     private void Awake()
     {
@@ -41,7 +46,11 @@ public class AnimalStatsManager : MonoBehaviour
         Stats = GetComponent<CharacterStats>();
         if (Stats == null) Stats = gameObject.AddComponent<CharacterStats>();
 
-
+        // 🌟 ป้องกันค่า 0: ถ้าตอน Awake ดาเมจยังเป็น 0 ให้ดึงจาก template พื้นฐานมาก่อนเลย!
+        if (damage <= 0 && defaultTemplate != null)
+        {
+            damage = defaultTemplate.baseAttackDamage;
+        }
     }
 
     /// <summary>
@@ -63,6 +72,7 @@ public class AnimalStatsManager : MonoBehaviour
         }
 
         Debug.Log($"[Stats] 🔒 ซิงค์ยูนิตสำเร็จ: {ActiveUnitData.customName} บนสนามล็อกรหัส ID แท้เดียวกับคลังแล้ว -> {ActiveUnitData.uniqueId}");
+        damage = ActiveUnitData.attackDamage;
     }
 
     /// <summary>
@@ -121,5 +131,12 @@ public class AnimalStatsManager : MonoBehaviour
         int[] privateStats = Stats.GetPrivateData();
         hpBar.value = (float)Stats.currentHP / privateStats[0];
         staminaBar.value = (float)Stats.currentStamina / privateStats[2];
+
+        if(Stats.currentHP <= 0)
+        {
+            Stats.Die();
+        }
     }
+
+    
 }

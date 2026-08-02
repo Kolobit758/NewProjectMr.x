@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c8b3dcd6805b7b43b758dea67c720ca, type: 3}
+  m_Name: PerfectFertilizer
+  m_EditorClassIdentifier: 
+  itemId: PerfectFertilizer
+  itemName: PerfectFertilizer
+  itemType: 1
+  itemIcon: {fileID: 0}
+  detail: 
+  dropItemPrefab: {fileID: 5294404571093641691, guid: 3fd8eb543e51be44299666f6a44550f9, type: 3}
+  providedNutrients:
+    nitrogen: 80
+    phosphorus: 80
+    potassium: 80
+  growthSpeedMultiplier: 1.5
+  mutationChance: 15

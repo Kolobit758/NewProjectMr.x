@@ -34,8 +34,7 @@ public class UnitInstance
         attackRange = templateData.baseAttackRange;
         guardRadius = templateData.baseGuardRadius;
 
-        attackDamage = templateData.baseAttackDamage + UnityEngine.Random.Range(-templateData.attackRandomRange, templateData.attackRandomRange);
-        attackDamage = Mathf.Max(1f, attackDamage); 
+        attackDamage = templateData.baseAttackDamage;
 
         isInFormation = false;
         formationSlotKey = string.Empty;

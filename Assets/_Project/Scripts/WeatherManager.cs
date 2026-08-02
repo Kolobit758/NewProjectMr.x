@@ -16,6 +16,7 @@ public class WeatherManager : MonoBehaviour
 
     [Header("UI")]
     public TextMeshProUGUI weatherText;
+    public WeatherType CurrentWeather => currentWeather;
 
     private void Awake()
     {

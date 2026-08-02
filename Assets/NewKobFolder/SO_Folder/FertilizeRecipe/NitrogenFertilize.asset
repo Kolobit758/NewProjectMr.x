@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c62d55278ecd8334f9f3a6f9bf3f70e5, type: 3}
+  m_Name: NitrogenFertilize
+  m_EditorClassIdentifier: 
+  recipeName: NitrogenFerilize
+  resultingFertilizer: {fileID: 11400000, guid: 49caa3d46f17fe643a57934bddd4623f, type: 2}
+  requiredIngredients:
+  - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
+    amount: 5
+  - item: {fileID: 11400000, guid: 8fedf311547d09e41883e61e4f7322f3, type: 2}
+    amount: 5
+  productionTime: 2

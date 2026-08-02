@@ -25,6 +25,12 @@ public class PetManager : MonoBehaviour
     public int dogMaxEnergy = 3;
     public int explorationEnergyCost = 1;
 
+    public DogStatus CurrentDogStatus => dogStatus;
+    public int DogEnergy => dogEnergy;
+    public int DogMaxEnergy => dogMaxEnergy;
+    public bool IsExploring => dogStatus == DogStatus.Exploring;
+    public float DogExploreTimeRemaining => remainingExplorationTime;
+
     [Header("Scene References")]
     public GameObject dogObject;
 
@@ -68,12 +74,14 @@ public class PetManager : MonoBehaviour
         if (dogStatus == DogStatus.Exploring)
         {
             Debug.Log(dogName + " is already exploring.");
+            ShowPetPopup("Dog is already exploring", "Wait for Dog to return.");
             return;
         }
 
         if (dogEnergy < explorationEnergyCost)
         {
             Debug.Log(dogName + " is too tired to explore. Feed Pepper with O.");
+            ShowPetPopup("Dog has no energy", "Feed Pepper with O before exploring.");
             RefreshUI();
             return;
         }
@@ -90,12 +98,14 @@ public class PetManager : MonoBehaviour
         if (dogStatus == DogStatus.Exploring)
         {
             Debug.Log(dogName + " is exploring and cannot eat right now.");
+            ShowPetPopup("Dog is exploring", "Dog cannot eat right now.");
             return;
         }
 
         if (dogEnergy >= dogMaxEnergy)
         {
             Debug.Log(dogName + " already has full energy.");
+            ShowPetPopup("Dog energy is full", "No Pepper needed right now.");
             RefreshUI();
             return;
         }
@@ -110,6 +120,7 @@ public class PetManager : MonoBehaviour
         if (!success)
         {
             Debug.Log("Need Pepper x1 to feed " + dogName + ".");
+            ShowPetPopup("Not enough Pepper", "Need Pepper x1 to feed Dog.");
             return;
         }
 
@@ -117,6 +128,14 @@ public class PetManager : MonoBehaviour
         InventoryManager.Instance.ShowDiscoveryMessage(dogName + " ate Pepper. Energy restored!");
         Debug.Log(dogName + " energy: " + dogEnergy + "/" + dogMaxEnergy);
         RefreshUI();
+    }
+
+    private void ShowPetPopup(string title, string detail)
+    {
+        if (HUDController.Instance != null)
+        {
+            HUDController.Instance.ShowPopup(title, detail);
+        }
     }
 
     public void IncreaseDogMaxEnergy(int amount)

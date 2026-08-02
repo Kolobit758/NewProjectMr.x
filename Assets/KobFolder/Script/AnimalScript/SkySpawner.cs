@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
@@ -14,45 +13,36 @@ public class SkySpawner : MonoBehaviour
 
     [Header("Spawn Settings")]
     [SerializeField] private List<SpawnableUnitData> unitList = new List<SpawnableUnitData>();
+    [SerializeField] private string unitDefaultLayer;
     [SerializeField] private LayerMask groundLayer;
 
     [Header("Quantity Settings")]
     [SerializeField] private int minSpawnCount = 2;
     [SerializeField] private int maxSpawnCount = 5;
 
-    [Header("Area Settings")]
-    [SerializeField] private float spawnRadius = 4f;
+    [Header("Area Settings (สุ่มอิสระรอบจุด Spawner)")]
+    [SerializeField] private float worldSpawnRadius = 100f; // รัศมีกว้างๆ ที่จะให้สัตว์สุ่มเกิดรอบๆ ตําแหน่งตัว Script นี้
+    [SerializeField] private float individualSpreadRadius = 4f; // รัศรีย่อยตอนกระจายตัวสัตว์แต่ละตัว
     [SerializeField] private float raycastHeight = 30f;
-    // สคริปต์ตัวอย่าง ณ จุดที่กดสั่งเสก (เช่น ในสคริปต์ควบคุมเกมของคุณ)
+
     void Update()
     {
-        // ตัวอย่าง: ถ้ากดปุ่มเลข 9 บนคีย์บอร์ดให้เรียกสัตว์ลงมาจากฟ้าตรงตำแหน่งตัวผู้เล่น
+        // ตัวอย่าง: กดปุ่ม Alpha0 (เลข 0) เพื่อสั่งสุ่มเสกสัตว์ลงมาจากฟ้าในพื้นที่อิสระ
         if (Input.GetKeyDown(KeyCode.Alpha0))
         {
-            Debug.Log("Create animal");
-            GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-            SkySpawner spawner = FindAnyObjectByType<SkySpawner>(); // ค้นหาตัวสปอว์นเนอร์ในฉาก
-
-            if (spawner != null && playerObj != null)
-            {
-                // ส่งตำแหน่งเท้าของผู้เล่นไปให้สคริปต์เสกทำงานรอบ ๆ ตัวเขาเลย
-                spawner.SpawnFromSky(playerObj.transform.position);
-            }
+            Debug.Log("Random Spawn from Sky");
+            SpawnRandomlyInWorld();
         }
     }
+
     void Start()
     {
-        Debug.Log("Create animal");
-        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-        SkySpawner spawner = FindAnyObjectByType<SkySpawner>(); // ค้นหาตัวสปอว์นเนอร์ในฉาก
-
-        if (spawner != null && playerObj != null)
-        {
-            // ส่งตำแหน่งเท้าของผู้เล่นไปให้สคริปต์เสกทำงานรอบ ๆ ตัวเขาเลย
-            spawner.SpawnFromSky(playerObj.transform.position);
-        }
+        // หรือถ้าอยากให้มันสุ่มเสกทันทีตอนเริ่มเกม ก็เปิดคอมเมนต์บรรทัดล่างนี้ได้ครับ
+        // SpawnRandomlyInWorld();
     }
-    public void SpawnFromSky(Vector3 targetPosition)
+
+    // 🟢 ฟังก์ชันหลักในการสุ่มพิกัดอิสระรอบๆ ตัว Spawner
+    public void SpawnRandomlyInWorld()
     {
         if (unitList == null || unitList.Count == 0)
         {
@@ -60,19 +50,24 @@ public class SkySpawner : MonoBehaviour
             return;
         }
 
-        Vector3 groundHitPoint = targetPosition; // ตั้งค่าเริ่มต้นอิงตำแหน่งดิบที่ส่งมาก่อนกันเหนียว
-        Vector3 rayOrigin = new Vector3(targetPosition.x, targetPosition.y + raycastHeight, targetPosition.z);
+        // 1. สุ่มจุดศูนย์กลาง (Center Point) ภายในรัศมี worldSpawnRadius รอบๆ ตำแหน่งที่ตึก/สปอนเซอร์ตัวนี้วางอยู่
+        Vector2 randomCircle = UnityEngine.Random.insideUnitCircle * worldSpawnRadius;
+        Vector3 randomCenterPos = new Vector3(transform.position.x + randomCircle.x, transform.position.y + raycastHeight, transform.position.z + randomCircle.y);
 
-        // 🛠️ ยิงลำแสงเช็คพื้นผิว (ถ้าเจอเลเยอร์ Ground จะได้ความสูงผิวสัมผัสที่แม่นยำ)
+        Vector3 groundHitPoint = randomCenterPos;
+        Vector3 rayOrigin = randomCenterPos;
+
+        // 2. 🛠️ ยิงลำแสงลงพื้นเพื่อหา Ground Layer ที่แท้จริง ณ จุดที่สุ่มได้
         if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, raycastHeight * 2f, groundLayer))
         {
             groundHitPoint = hit.point;
-            Debug.Log($"SkySpawner: [Raycast Hit] เจอพื้นผิวเลเยอร์ Ground ที่: {groundHitPoint}");
+            Debug.Log($"SkySpawner: [Raycast Hit] สุ่มเจอพื้นผิว Ground ที่พิกัด: {groundHitPoint}");
         }
         else
         {
-            // 🚨 แผนสำรองถ้าระบบเลเยอร์เอ๋อ: บังคับใช้ตำแหน่งแกน Y ที่ส่งมาเป็นฐานตั้งต้นเลย เกมจะไม่ค้างและเสกออกแน่นอน
-            Debug.LogWarning($"SkySpawner: [Raycast Miss] ยิงไม่เจอเลเยอร์ Ground แต่สคริปต์จะใช้พิกัดทดแทนที่: {groundHitPoint}");
+            // ถ้าไม่โดนพื้น ให้ใช้ความสูงปัจจุบันเป็นค่าสำรอง
+            groundHitPoint = new Vector3(randomCenterPos.x, transform.position.y, randomCenterPos.z);
+            Debug.LogWarning($"SkySpawner: [Raycast Miss] ยิงไม่เจอเลเยอร์ Ground ใช้พิกัดสำรองที่: {groundHitPoint}");
         }
 
         int actualSpawnCount = UnityEngine.Random.Range(minSpawnCount, maxSpawnCount + 1);
@@ -82,24 +77,27 @@ public class SkySpawner : MonoBehaviour
             GameObject selectedPrefab = GetRandomUnitPrefab();
             if (selectedPrefab == null) continue;
 
-            // สุ่มพิกัดกระจายรอบจุดตกกระทบ
+            // 3. สุ่มกระจายตำแหน่งย่อยรอบจุดศูนย์กลางที่สุ่มได้
             Vector3 randomOffset = new Vector3(
-                UnityEngine.Random.Range(-spawnRadius, spawnRadius),
-                0.2f, // ยกลอยขึ้นเหนือผิวเล็กน้อยเพื่อความปลอดภัย
-                UnityEngine.Random.Range(-spawnRadius, spawnRadius)
+                UnityEngine.Random.Range(-individualSpreadRadius, individualSpreadRadius),
+                0.2f, // ยกลอยขึ้นเหนือผิวเล็กน้อย
+                UnityEngine.Random.Range(-individualSpreadRadius, individualSpreadRadius)
             );
 
             Vector3 desiredSpawnPos = groundHitPoint + randomOffset;
 
-            // ตรวจสอบพื้นที่บน NavMesh สีฟ้า
-            if (NavMesh.SamplePosition(desiredSpawnPos, out NavMeshHit navHit, spawnRadius * 2f, NavMesh.AllAreas))
+            // 4. ตรวจสอบพื้นที่บน NavMesh หรือวางตามพิกัดดิบ
+            if (NavMesh.SamplePosition(desiredSpawnPos, out NavMeshHit navHit, individualSpreadRadius * 2f, NavMesh.AllAreas))
             {
-                Instantiate(selectedPrefab, navHit.position, Quaternion.identity);
+                GameObject newAnimal = Instantiate(selectedPrefab, navHit.position, Quaternion.identity);
+                newAnimal.tag = "Enemy";
+                newAnimal.gameObject.layer = LayerMask.NameToLayer(unitDefaultLayer);
             }
             else
             {
-                // ถ้าสุ่มไปนอก NavMesh ให้เสกตำแหน่งดิบตรงนั้นเลย สัตว์จะได้เกิดครบถ้วนตามจำนวน
-                Instantiate(selectedPrefab, desiredSpawnPos, Quaternion.identity);
+                GameObject newAnimal = Instantiate(selectedPrefab, desiredSpawnPos, Quaternion.identity);
+                newAnimal.tag = "Enemy";
+                newAnimal.gameObject.layer = LayerMask.NameToLayer(unitDefaultLayer);
             }
         }
     }

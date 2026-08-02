@@ -48,26 +48,6 @@ public class CustomFormationComtroller : MonoBehaviour
         {
             for (int x = 0; x < armyUnits.Count; x++)
             {
-                if (unitIndex >= armyUnits.Count) break;
-
-                if (formationData.rows[y].cols[x] == true)// มันวางได้
-                {
-                    float xOffset = (x - (formationData.gridWidth - 1) / 2f) * formationData.spacing;
-                    float zOffset = (((formationData.gridHeight - 1) / 2f) - y) * formationData.spacing;
-
-                    Vector3 localOffset = new Vector3(xOffset, 0, zOffset);
-                    Vector3 finalWorldPos = clickPoint + (formationRotation * localOffset);
-
-                    if (armyUnits[unitIndex] != null)
-                    {
-                        if (NavMesh.SamplePosition(finalWorldPos, out NavMeshHit navHit, formationData.spacing * 1.5f, NavMesh.AllAreas))
-                        {
-                            armyUnits[unitIndex].SetDestination(navHit.position);
-                            unitIndex++;
-                        }
-                    }
-                }
-
 
             }
         }

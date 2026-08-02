@@ -74,6 +74,7 @@ public class PlotSelector : MonoBehaviour
         if (selectedPlot == null)
         {
             Debug.Log("Select a plot first.");
+            ShowHUDPopup("Select a plot first", "Click a crop plot before planting.");
             return;
         }
 
@@ -85,6 +86,7 @@ public class PlotSelector : MonoBehaviour
         if(selectedPlot == null)
         {
             Debug.Log("Slect a plot first.");
+            ShowHUDPopup("Select a plot first", "Click a crop plot before watering.");
             return;
         }
 
@@ -96,6 +98,7 @@ public class PlotSelector : MonoBehaviour
         if (selectedPlot == null)
         {
             Debug.Log("Select a plot first");
+            ShowHUDPopup("Select a plot first", "Click a crop plot before harvesting.");
             return;
         }
 
@@ -107,6 +110,7 @@ public class PlotSelector : MonoBehaviour
         if (selectedPlot == null)
         {
             Debug.Log("Select a plot first.");
+            ShowHUDPopup("Select a plot first", "Click a crop plot before applying fertilizer.");
             return;
         }
 
@@ -117,5 +121,13 @@ public class PlotSelector : MonoBehaviour
         }
 
         selectedPlot.ApplyFertilizer(FertilizerManager.Instance.CurrentFertilizer);
+    }
+
+    private void ShowHUDPopup(string title, string detail)
+    {
+        if (HUDController.Instance != null)
+        {
+            HUDController.Instance.ShowPopup(title, detail);
+        }
     }
 }

@@ -1,5 +1,6 @@
-using UnityEngine;
+#if UNITY_EDITOR
 using UnityEditor;
+using UnityEngine;
 
 [CustomEditor(typeof(CustomFormationData))]
 public class CustomFormationEditor : Editor
@@ -49,3 +50,4 @@ public class CustomFormationEditor : Editor
         }
     }
 }
+#endif

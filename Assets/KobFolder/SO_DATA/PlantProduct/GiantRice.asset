@@ -17,10 +17,10 @@ MonoBehaviour:
   itemType: 5
   itemIcon: {fileID: 0}
   detail: 
-  itemPrefab: {fileID: 0}
+  dropItemPrefab: {fileID: 0}
   productName: GiantRice
   productDescription: 
-  productPrefab: {fileID: 6555884930047120781, guid: 39f58c8f037bf7c4f90aafd4b90f16af, type: 3}
+  productPrefab: {fileID: 100000, guid: ecd096e500a3582478fa38892c8c3a79, type: 3}
   aoeRadius: 5
   zoneDuration: 8
   buffsToApply:

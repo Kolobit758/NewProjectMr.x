@@ -5,15 +5,23 @@ using System.Collections.Generic;
 public class GridPlacementManager : MonoBehaviour
 {
     public static GridPlacementManager Instance { get; private set; }
+    public Camera mainCam;
 
     [Header("Grid Settings")]
     public float cellSize = 1f;
     public LayerMask placementLayer;
 
+    [Header("Height Adjustment")]
+    public float manualYOffset = 0f;           // 🟢 ปรับ global ใน Inspector ได้ (ปรับตายตัวถ้าตึกส่วนใหญ่ลอย/จมเท่ากัน)
+    public float fineTuneStep = 0.05f;         // 🟢 ระยะขยับต่อการกดปุ่ม/scroll 1 ครั้ง
+    private float currentFineTuneOffset = 0f;  // 🟢 offset ที่ปรับสดตอน placement (reset ทุกครั้งที่เริ่มวางใหม่)
+
     private GameObject currentGhost;
     private SO_Building currentBuildingData;
     public Material ghostMaterial;
     private bool isPlacementMode = false;
+    public bool IsPlacementModeActive => isPlacementMode;
+    private float ghostPivotOffsetY = 0f;
 
     void Awake()
     {
@@ -25,16 +33,15 @@ public class GridPlacementManager : MonoBehaviour
     {
         if (!isPlacementMode) return;
 
+        HandleFineTuneInput(); // 🟢 เช็ค input ปรับความสูงก่อน แล้วค่อย update ตำแหน่ง
         UpdateGhostPosition();
 
-        // 🟢 แก้ไขจุดที่ 1: เอา canPlaceThisFrame ที่เอ๋อค้างออกไปเลยมึง จิ้มเมื่อไหร่วางเมื่อนั้น ดักด้วยความชัวร์ของตัววัตถุแทน!
         if (Input.GetMouseButtonDown(0))
         {
             if (currentGhost != null)
             {
                 PlaceStructure();
             }
-            
         }
 
         if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
@@ -43,57 +50,88 @@ public class GridPlacementManager : MonoBehaviour
         }
     }
 
+    // 🟢 ปรับความสูงสดๆ ระหว่าง placement ด้วย PageUp/PageDown หรือ scroll wheel
+    private void HandleFineTuneInput()
+    {
+        if (Input.GetKeyDown(KeyCode.PageUp))
+        {
+            currentFineTuneOffset += fineTuneStep;
+        }
+        else if (Input.GetKeyDown(KeyCode.PageDown))
+        {
+            currentFineTuneOffset -= fineTuneStep;
+        }
+
+        float scroll = Input.mouseScrollDelta.y;
+        if (Mathf.Abs(scroll) > 0.01f)
+        {
+            currentFineTuneOffset += scroll * fineTuneStep;
+        }
+    }
+
+    public void StartPlacementManager(GameObject ghostPrefab, SO_Building buildingData)
+    {
+        // แก้ชื่อเมธอดให้ตรงกันถ้ามีการเรียกใช้จากข้างนอก หรือคงชื่อ StartPlacementMode ไว้ตามเดิม
+    }
+
     public void StartPlacementMode(GameObject ghostPrefab, SO_Building buildingData)
     {
         if (currentGhost != null) Destroy(currentGhost);
 
         currentBuildingData = buildingData;
+        currentFineTuneOffset = 0f; // 🟢 reset ทุกครั้งที่เริ่มวางตึกใหม่
         currentGhost = InstantiatingGhost(ghostPrefab);
-        isPlacementMode = true; // 🟢 เปิดโหมดตรงๆ ไม่ง้อ Coroutine หน่วงเวลาให้ค้างมึง
+        isPlacementMode = true;
     }
 
     private GameObject InstantiatingGhost(GameObject prefab)
     {
         GameObject ghost = Instantiate(prefab);
 
+        GhostBuilding gb = ghost.GetComponent<GhostBuilding>();
+        if (gb == null) gb = ghost.AddComponent<GhostBuilding>();
+        gb.buildingData = currentBuildingData;
+
         Collider[] ghostColliders = ghost.GetComponentsInChildren<Collider>();
-        foreach (Collider c in ghostColliders)
-        {
-            c.enabled = false;
-        }
+        foreach (Collider c in ghostColliders) c.enabled = false;
 
-        // บังคับเปลี่ยน Layer ไป Ignore Raycast ป้องกันเลเซอร์ชนตัวเอง
         ghost.layer = LayerMask.NameToLayer("Ignore Raycast");
-        foreach (Transform child in ghost.transform)
+
+        ghostPivotOffsetY = CalculatePivotToBottomOffset(ghost);
+
+        return ghost;
+    }
+
+    private float CalculatePivotToBottomOffset(GameObject obj)
+    {
+        Renderer[] renderers = obj.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return 0f;
+
+        Bounds bounds = renderers[0].bounds;
+        foreach (Renderer r in renderers)
         {
-            child.gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+            bounds.Encapsulate(r.bounds);
         }
 
-        MeshRenderer[] renderers = ghost.GetComponentsInChildren<MeshRenderer>();
-        foreach (MeshRenderer render in renderers)
-        {
-            if (ghostMaterial != null)
-            {
-                render.material = ghostMaterial;
-            }
-        }
-        return ghost;
+        float bottomY = bounds.min.y;
+        float pivotY = obj.transform.position.y;
+
+        return pivotY - bottomY;
     }
 
     private void UpdateGhostPosition()
     {
         if (currentGhost == null) return;
 
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
-        // ยิงเลเซอร์ตรวจจับหน้าผิวเกาะ
         if (Physics.Raycast(ray, out hit, 500f, placementLayer))
         {
             Vector3 gridPos = SnapToGrid(hit.point);
 
-            // 🟢 [แก้ไขจุดตาย]: ล็อกความสูงจากจุดที่เลเซอร์เมาส์ชนผิวบนสุดจริง ๆ ไม่เด้งลงไปกึ่งกลางโมเดลแล้วมึง!
-            gridPos.y = hit.point.y;
+            // 🟢 รวม offset ทั้งหมด: พื้นผิว + offset ที่คำนวณจาก mesh + manual global + fine-tune สด
+            gridPos.y = hit.point.y + ghostPivotOffsetY + manualYOffset + currentFineTuneOffset;
 
             currentGhost.transform.position = gridPos;
             currentGhost.SetActive(true);
@@ -108,44 +146,20 @@ public class GridPlacementManager : MonoBehaviour
     {
         if (currentGhost == null || !currentGhost.activeSelf) return;
 
-        Vector3 spawnPos = currentGhost.transform.position;
+        GameObject placedGhost = currentGhost;
 
-        if (currentBuildingData != null && currentBuildingData.Realprefab != null)
+        GhostBuilding gb = placedGhost.GetComponent<GhostBuilding>();
+        if (gb != null) gb.enabled = true;
+
+        if (ResourceInventory.Instance != null)
         {
-            // สร้างสิ่งปลูกสร้างจริงตรงพิกัดที่ Ghost ล็อกผิวไว้เรียบร้อย
-            GameObject realBuilding = Instantiate(currentBuildingData.Realprefab, spawnPos, Quaternion.identity);
-
-            // ยิงเลเซอร์ดักลงทะเบียนเข้าเกาะ
-            Ray castDown = new Ray(spawnPos + Vector3.up * 5f, Vector3.down);
-            RaycastHit hit;
-
-            if (Physics.Raycast(castDown, out hit, 15f, placementLayer))
-            {
-                IslandController island = hit.collider.GetComponent<IslandController>();
-                if (island == null) island = hit.collider.GetComponentInParent<IslandController>();
-
-                if (island != null)
-                {
-                    if (island.placedStructures == null)
-                    {
-                        island.placedStructures = new List<GameObject>();
-                    }
-
-                    island.placedStructures.Add(realBuilding);
-
-                    if (realBuilding.TryGetComponent<MachineStructure>(out MachineStructure machine))
-                    {
-                        machine.myIsland = island;
-                    }
-                }
-            }
-
-            if (ResourceInventory.Instance != null)
-            {
-                ResourceInventory.Instance.ConsumeResource(currentBuildingData, 1);
-            }
+            ResourceInventory.Instance.ConsumeResource(currentBuildingData, 1);
         }
 
+        Collider[] colliders = placedGhost.GetComponentsInChildren<Collider>();
+        foreach (Collider c in colliders) c.enabled = true;
+
+        currentGhost = null;
         EndPlacementMode();
     }
 

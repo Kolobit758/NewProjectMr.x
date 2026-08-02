@@ -1,0 +1,92 @@
+using UnityEngine;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine.UI;
+
+public class BuildingUIManager : MonoBehaviour
+{
+    public List<SO_Building> buildingData = new List<SO_Building>();
+    public GameObject btnPrefab;
+    public Transform menuContainer;
+
+    [Header("Tooltip References")]
+    public GameObject tooltipPanel;    // หน้าต่าง Tooltip เล็กๆ ที่ซ่อนไว้
+    public Transform tooltipContentContainer; // Layout สำหรับวางรายการไอเทมใน Tooltip
+    public GameObject tooltipItemRowPrefab;   // Prefab แถวแสดง (รูปไอคอน + จำนวน)
+
+    void Start()
+    {
+        if (tooltipPanel != null) tooltipPanel.SetActive(false);
+        CreateMenu();
+    }
+
+    public void CreateMenu()
+    {
+        foreach (Transform child in menuContainer) Destroy(child.gameObject);
+
+        foreach (SO_Building building in buildingData)
+        {
+            if (building == null) continue;
+            GameObject btnObj = Instantiate(btnPrefab, menuContainer);
+            BuildingButton btnScript = btnObj.GetComponent<BuildingButton>();
+            if (btnScript != null) btnScript.InitButton(building, this);
+        }
+    }
+
+    public void SelectBuildingToPlace(SO_Building selectedBuilding)
+    {
+        bool success = selectedBuilding.UseItem(null);
+        if (success) Debug.Log("เปิดโหมดวางสำเร็จ!");
+    }
+
+    public void ShowTooltip(ResourceCost[] costs, Vector3 buttonPosition)
+    {
+        if (tooltipPanel == null) return;
+
+        // เปิด Panel ก่อนเพื่อให้ Layout ทำงาน
+        tooltipPanel.SetActive(true);
+
+        // เคลียร์รายการเก่าใน Tooltip ก่อน
+        foreach (Transform child in tooltipContentContainer)
+        {
+            Destroy(child.gameObject);
+        }
+
+        // วนลูปสร้างแถวแสดงทรัพยากร
+        foreach (ResourceCost cost in costs)
+        {
+            if (cost.item == null) continue;
+
+            GameObject rowObj = Instantiate(tooltipItemRowPrefab, tooltipContentContainer);
+
+            Image iconImg = rowObj.transform.Find("Icon")?.GetComponent<Image>();
+            TextMeshProUGUI amountTxt = rowObj.transform.Find("AmountText")?.GetComponent<TextMeshProUGUI>();
+
+            if (iconImg != null && cost.item.itemIcon != null)
+                iconImg.sprite = cost.item.itemIcon;
+
+            if (amountTxt != null)
+            {
+                amountTxt.text = cost.amount.ToString();
+
+                if (ResourceInventory.Instance != null)
+                {
+                    bool hasEnough = ResourceInventory.Instance.HasResource(cost.item.itemName, cost.amount);
+                    amountTxt.color = hasEnough ? Color.white : Color.red;
+                }
+            }
+        }
+
+        // 🟢 ปรับตำแหน่งให้อยู่ "ด้านล่าง" ของปุ่ม (ลดค่า Y ลง เช่น -60 หรือ -80 ตามขนาดปุ่ม)
+        tooltipPanel.transform.position = buttonPosition + new Vector3(0, -500f, 0);
+    }
+
+    // 🔴 ฟังก์ชันซ่อน Tooltip เมื่อเมาส์ออก
+    public void HideTooltip()
+    {
+        if (tooltipPanel != null)
+        {
+            tooltipPanel.SetActive(false);
+        }
+    }
+}

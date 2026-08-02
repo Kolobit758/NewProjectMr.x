@@ -17,20 +17,35 @@ public class SO_ItemData : ScriptableObject
     {
         if (itemType == ItemType.Weapon || itemType == ItemType.Armor)
         {
-            Debug.Log($"[Item] สวมใส่ {itemName} แล้ว! (เพิ่มสเตตัสให้ตัวละคร)");
-            // ลอจิกสวมใส่เกราะ/อาวุธของคุณ...
+            Debug.Log($"[Item] สวมใส่ {itemName} แล้ว!");
             return true;
         }
-        if (itemType == ItemType.Plant_Product)
-        {
-            Debug.Log($"[Item] สวมใส่ {itemName} แล้ว!");
-        }
+
+        // 🟢 1. ถ้าเป็นเมล็ดพืช (Seed) ➡️ ส่งไปให้ FarmingManager จำค่าไว้เตรียมปลูก
         if (itemType == ItemType.Seed)
         {
-            Debug.Log($"[Item] สวมใส่ {itemName} แล้ว!");
+            if (this is SO_PlantData plantData && FarmingManager.Instance != null)
+            {
+                FarmingManager.Instance.currentSelectedSeed = plantData;
+                Debug.Log($"🌱 [Item]: เลือกเมล็ด {itemName} เตรียมปลูกแล้ว คลิกซ้ายที่แปลงผักได้เลย!");
+                return true;
+            }
         }
 
-        Debug.LogWarning($"[Item] {itemName} เป็นวัตถุดิบ ไม่สามารถกดใช้ตรงๆ ได้");
+        // 🟢 2. ถ้าเป็นผลผลิต (Plant_Product) ➡️ ส่งไปให้ PlayerThrowManager เปิดโหมดขว้างล่อสัตว์
+        if (itemType == ItemType.Plant_Product)
+        {
+            if (PlayerThrowManager.Instance != null)
+            {
+                PlayerThrowManager.Instance.StartThrowMode(this);
+                Debug.Log($"🍎 [Item]: เลือกผลผลิต {itemName} เตรียมขว้างล่อสัตว์แล้ว คลิกซ้ายเลือกจุดตกบนพื้น!");
+                return true;
+            }
+        }
+
+
+
+        Debug.LogWarning($"[Item] {itemName} ไม่สามารถกดใช้งานตรงๆ ได้");
         return false;
     }
 }

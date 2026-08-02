@@ -7,6 +7,7 @@ public class UnitDataSO : ScriptableObject
     public string speciesName = "Wild Animal";
     public GameObject unitPrefab;
     public Sprite unitIcon;
+    public int coinCost = 50; // 💰 ราคาเงินที่ใช้ซื้อยูนิตตัวนี้ (ตั้งค่าจบที่ SO นี้ที่เดียว)
 
     [Header("Base Stats")]
     public int baseMaxHP = 50;
@@ -16,7 +17,7 @@ public class UnitDataSO : ScriptableObject
     public float baseAttackDamage = 10f;
 
     [Header("Randomization Bounds (Offsets)")]
-    public int hpRandomRange = 10;          // baseMaxHP +/- random(0, hpRandomRange)
+    public int hpRandomRange = 10;            // baseMaxHP +/- random(0, hpRandomRange)
     public float attackRandomRange = 2f;    // baseAttackDamage +/- random(0, attackRandomRange)
 
     [Header("Skill Configuration")]
