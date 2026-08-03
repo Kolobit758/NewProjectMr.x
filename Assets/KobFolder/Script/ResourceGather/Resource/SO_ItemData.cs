@@ -1,6 +1,7 @@
 using UnityEngine;
 
 public enum ItemType { Material, Fertilizer, Building, Weapon, Armor, Plant_Product, Seed }
+public enum ItemGrade { S, A, B, C, D, E, F }
 
 [CreateAssetMenu(fileName = "NewItem", menuName = "Inventory/Item Data")]
 public class SO_ItemData : ScriptableObject

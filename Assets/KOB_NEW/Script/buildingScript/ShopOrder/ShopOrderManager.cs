@@ -1,5 +1,5 @@
-using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine;
 
 [System.Serializable]
 public struct OrderRequirement
@@ -21,22 +21,22 @@ public class ShopOrderManager : MonoBehaviour
     public static ShopOrderManager Instance { get; private set; }
 
     [Header("Seasonal Item Pools")]
-    [Tooltip("รายชื่อไอเทมที่จะถูกสุ่มมาทำออเดอร์ในแต่ละฤดู (ลาก SO_ItemData มาใส่)")]
     public List<SO_ItemData> springItems = new List<SO_ItemData>();
     public List<SO_ItemData> summerItems = new List<SO_ItemData>();
     public List<SO_ItemData> autumnItems = new List<SO_ItemData>();
     public List<SO_ItemData> winterItems = new List<SO_ItemData>();
 
-    [Header("Active Daily Orders (5 Orders)")]
+    [Header("Active Daily Orders")]
     public List<ProceduralOrder> activeDailyOrders = new List<ProceduralOrder>();
 
     [Header("Generation Settings")]
-    public int minItemsPerOrder = 1; // จำนวนประเภทไอเทมขั้นต่ำต่อ 1 ออเดอร์
-    public int maxItemsPerOrder = 3; // จำนวนประเภทไอเทมสูงสุดต่อ 1 ออเดอร์
-    public int minAmountPerItem = 2; // จำนวนชิ้นขั้นต่ำของไอเทมนั้นๆ
-    public int maxAmountPerItem = 8; // จำนวนชิ้นสูงสุดของไอเทมนั้นๆ
+    public int minItemsPerOrder = 1;
+    public int maxItemsPerOrder = 3;
+    public int minAmountPerItem = 2;
+    public int maxAmountPerItem = 8;
+    
     [Header("Currency Settings")]
-    public SO_ItemData goldItemData; // 💰 ลาก SO_ItemData ของทองคำมาใส่ตรงนี้ใน Inspector
+    public SO_ItemData goldItemData; 
 
     void Awake()
     {
@@ -46,10 +46,7 @@ public class ShopOrderManager : MonoBehaviour
 
     void Start()
     {
-        // สุ่มสร้างออเดอร์ 5 แบบแรกตอนเริ่มเกม
         GenerateDailyProceduralOrders();
-
-        // 🟢 ดักฟัง Event: ทุกครั้งที่ขึ้นวันใหม่ (Day เปลี่ยน) ให้สั่งสุ่มออเดอร์ใหม่ทันที!
         if (DayNightManager.Instance != null)
         {
             DayNightManager.Instance.OnDayChanged += OnNewDayStarted;
@@ -58,41 +55,29 @@ public class ShopOrderManager : MonoBehaviour
 
     void OnDestroy()
     {
-        // ป้องกัน Memory Leak ถอดการดักฟัง Event ตอน Object ถูกทำลาย
         if (DayNightManager.Instance != null)
         {
             DayNightManager.Instance.OnDayChanged -= OnNewDayStarted;
         }
     }
 
-    // ฟังก์ชันที่จะถูกเรียกอัตโนมัติทุกๆ เช้าวันใหม่
     private void OnNewDayStarted(int newDay)
     {
-        Debug.Log($"🌅 [Shop]: เช้าวันใหม่ Day {newDay} มาถึงแล้ว! ทำการสุ่มออเดอร์ใหม่...");
         GenerateDailyProceduralOrders();
-
-        // ถ้าหน้าต่าง Shop เปิดอยู่ ให้สั่งรีเฟรชหน้าจอ UI ร้านค้าด้วย
         if (ShopUIController.Instance != null)
         {
             ShopUIController.Instance.RefreshShopUI();
         }
     }
 
-    // 🟢 สุ่มสร้างออเดอร์ Procedural 5 แบบใหม่ตามฤดูกาลปัจจุบัน
     public void GenerateDailyProceduralOrders()
     {
         activeDailyOrders.Clear();
-
         Season currentSeason = (DayNightManager.Instance != null) ? DayNightManager.Instance.currentSeason : Season.Spring;
         List<SO_ItemData> activePool = GetItemPoolBySeason(currentSeason);
 
-        if (activePool == null || activePool.Count == 0)
-        {
-            Debug.LogWarning($"⚠️ [Shop]: Item pool is empty for season {currentSeason}!");
-            return;
-        }
+        if (activePool == null || activePool.Count == 0) return;
 
-        // สุ่มสร้าง 5 ออเดอร์
         for (int i = 0; i < 5; i++)
         {
             ProceduralOrder newOrder = new ProceduralOrder();
@@ -115,14 +100,12 @@ public class ShopOrderManager : MonoBehaviour
                 req.amount = amount;
 
                 newOrder.requirements.Add(req);
-                totalRewardCalc += amount * 15; // คำนวณรางวัลทองตามจำนวนไอเทม
+                totalRewardCalc += amount * 15; // ราคาฐาน (เทียบเท่าเกรด B)
             }
 
             newOrder.rewardGold = totalRewardCalc;
             activeDailyOrders.Add(newOrder);
         }
-
-        Debug.Log($"🛒 [Shop]: Generated 5 procedural orders for season: <b>{currentSeason}</b>");
     }
 
     private List<SO_ItemData> GetItemPoolBySeason(Season season)
@@ -137,8 +120,8 @@ public class ShopOrderManager : MonoBehaviour
         }
     }
 
-    // 📦 ฟังก์ชันส่งมอบออเดอร์ร้านค้า
-    public bool CompleteOrder(ProceduralOrder targetOrder)
+    // 🌟 [อัปเกรดใหม่]: ส่งมอบออเดอร์พร้อมคิดราคาบวก/ลบตาม "เกรดพืช" (S, A, B, C, D, E, F)
+    public bool CompleteOrder(ProceduralOrder targetOrder, ItemGrade itemGrade = ItemGrade.B)
     {
         if (targetOrder == null || !activeDailyOrders.Contains(targetOrder)) return false;
 
@@ -147,7 +130,7 @@ public class ShopOrderManager : MonoBehaviour
         {
             if (!ResourceInventory.Instance.HasResource(req.requiredItem.itemName, req.amount))
             {
-                Debug.Log($"❌ [Shop]: Not enough items to complete {targetOrder.orderTitle} (Missing {req.requiredItem.itemName})");
+                Debug.Log($"❌ [Shop]: ของในคลังไม่พอสำหรับส่งออเดอร์นี้");
                 return false;
             }
         }
@@ -158,13 +141,30 @@ public class ShopOrderManager : MonoBehaviour
             ResourceInventory.Instance.ConsumeResource(req.requiredItem, req.amount);
         }
 
-        // 3. 💰 มอบรางวัลเข้า ResourceInventory จริงๆ!
-        if (ResourceInventory.Instance != null && goldItemData != null)
+        // 3. 💰 คำนวณโบนัส/หักเงินตามเกรด
+        int baseGold = targetOrder.rewardGold; // ราคามาตรฐานป้าย (เกรด B)
+        int gradeModifier = 0;
+
+        switch (itemGrade)
         {
-            ResourceInventory.Instance.AddResource(goldItemData, targetOrder.rewardGold);
+            case ItemGrade.S: gradeModifier = 20; break; // +20 ทอง
+            case ItemGrade.A: gradeModifier = 10; break; // +10 ทอง
+            case ItemGrade.B: gradeModifier = 0;  break; // ราคาตามป้าย
+            case ItemGrade.C: gradeModifier = -10; break; // -10 ทอง
+            case ItemGrade.D: gradeModifier = -20; break; // -20 ทอง
+            case ItemGrade.E: gradeModifier = -30; break; // -30 ทอง
+            case ItemGrade.F: gradeModifier = -40; break; // -40 ทอง
         }
 
-        Debug.Log($"✨ [Shop]: Order completed successfully! Rewarded {targetOrder.rewardGold} Gold added to inventory.");
+        int finalReward = Mathf.Max(5, baseGold + gradeModifier); // การันตีได้เงินอย่างน้อย 5 ทอง
+
+        // 4. มอบทองให้ผู้เล่นจริง
+        if (ResourceInventory.Instance != null && goldItemData != null)
+        {
+            ResourceInventory.Instance.AddResource(goldItemData, finalReward);
+        }
+
+        Debug.Log($"✨ [Shop]: ส่งออเดอร์สำเร็จ! เกรดผลผลิต [{itemGrade}] | ได้รับทองรวม: {finalReward} Gold (ฐาน: {baseGold}, ปรับตามเกรด: {gradeModifier})");
         activeDailyOrders.Remove(targetOrder);
 
         return true;

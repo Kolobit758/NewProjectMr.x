@@ -1,17 +1,16 @@
 using UnityEngine;
-using System.Collections; // 🟢 จำเป็นต้องใช้สำหรับ Coroutine
+using System.Collections;
+using System.Collections.Generic;
 
-// 🟢 อัปเกรดสถานะให้ละเอียดขึ้นตามลำดับการปลูก
-public enum CropStage { Empty, NeedsFertilizer, NeedsWater, Growing, ReadyToHarvest }
+public enum CropStage { Empty, Growing, ReadyToHarvest }
 
-public class CropPlots : MonoBehaviour, ITaskable, IFertilizable // 🟢 เพิ่ม IFertilizable ให้ SetFertilizerType ทำงานจริง
+public class CropPlots : MonoBehaviour
 {
     [Header("Current Status")]
     public CropStage currentStage = CropStage.Empty;
     public SO_PlantData plantedPlantData;
 
-    private float growthTimer = 0f;
-    private float autoCallCooldown = 0f; // กันการตะโกนเรียกยูนิตรัวๆ
+    public int daysGrown = 0;
     private GameObject currentVisualObject;
 
     [Header("Plot Durability Settings")]
@@ -19,315 +18,216 @@ public class CropPlots : MonoBehaviour, ITaskable, IFertilizable // 🟢 เพ�
     public int currentPlotHealth = 3;
 
     [Header("Requirements Info")]
-    public string fertilizerKey = "Fertilizer"; // ชื่อหรือ ID ปุ๋ยที่จะใช้ (ต้องตรงกับใน Database)
-    public string waterKey = "Water";           // ชื่อหรือ ID น้ำที่จะใช้
     public SO_ItemData fertilizerItemData;
     public SO_ItemData waterItemData;
 
-    [Header("AI Lock")]
-    public bool isBeingServiced = false; // 🟢 ล็อคไว้กันเรียกยูนิตซ้ำซ้อน
+    [Header("Soil & Nutrient System")]
+    public NutrientData currentSoilNutrients;
+    public SO_FertilizerData appliedFertilizer;
+    public bool isMutated = false;
 
-    [Header("Dedicated Worker (จาก CropPlotsGroup)")]
-    [Tooltip("true เมื่อแปลงนี้มีคนงานประจำถูกมอบหมายมาดูแลแล้ว (ผ่าน CropPlotsGroup.ApplySettingsToWorker) " +
-             "ระบบ auto-call ยูนิตว่างงานตัวอื่นแบบสุ่มด้านล่างจะถูกปิด เพื่อไม่ให้แย่งงานกับคนงานประจำ")]
-    public bool hasDedicatedWorker = false;
-
-    [Header("Soil & Nutrient System (ระบบธาตุอาหารในดิน)")]
-    public NutrientData currentSoilNutrients; // ธาตุอาหาร N, P, K สะสมในดินของแปลงนี้
-    public SO_FertilizerData appliedFertilizer; // ปุ๋ยล่าสุดที่ใส่ลงแปลง
-    public bool isMutated = false;              // สถานะกลายพันธุ์
     [Header("Visual Settings")]
-    [Tooltip("ระยะยกตัวของโมเดลพืชขึ้นมาจากแปลง เพื่อไม่ให้จมดิน")]
-    public float plantHeightOffset = 0.05f; // 🟢 สามารถปรับค่านี้ได้จาก Inspector เลยครับ
+    public float plantHeightOffset = 0.05f;
 
+    [Header("Quality & Care Tracking")]
+    public float careQualityScore = 100f;
 
-    void Update()
+    [Header("Perfect Timing Window")]
+    [Tooltip("ก่อนถึงเดดไลน์กี่วินาที ถึงจะเริ่มนับว่าเป็นช่วง 'Perfect' ให้รดน้ำ/ใส่ปุ๋ย")]
+    public float perfectWindowSeconds = 5f;
+
+    [Header("Independent Timers (นับถอยหลัง)")]
+    public float waterCooldownTimer = 0f;
+    public float fertilizerCooldownTimer = 0f;
+
+    // 🟢 ธงบอกสถานะ "ต้องการตอนนี้เลย" — CropPlotUI เรียกใช้ตัวนี้โดยตรง
+    public bool needsWaterNow { get; private set; }
+    public bool needsFertilizerNow { get; private set; }
+
+    private float waterInterval = 30f;
+    private float fertilizerInterval = 60f;
+
+    void Start()
     {
-        // ⏰ ระบบรันการเจริญเติบโตเฉพาะตอนกลางวัน 
-        if (MotherTreeController.Instance != null && MotherTreeController.Instance.isNightTime) return;
-
-        // 🟢 ถ้าอยู่ในช่วงกำลังโต ก็จับเวลาไป
-        if (currentStage == CropStage.Growing)
+        if (DayNightManager.Instance != null)
         {
-            growthTimer += Time.deltaTime;
+            DayNightManager.Instance.OnDayChanged -= HandleDayChanged;
+            DayNightManager.Instance.OnDayChanged += HandleDayChanged;
+        }
+    }
 
-            if (growthTimer >= plantedPlantData.timeToGrow)
+    void OnDestroy()
+    {
+        if (DayNightManager.Instance != null)
+        {
+            DayNightManager.Instance.OnDayChanged -= HandleDayChanged;
+        }
+    }
+
+    private void HandleDayChanged(int newDay)
+    {
+        if (currentStage == CropStage.Growing && plantedPlantData != null)
+        {
+            daysGrown++;
+            if (daysGrown >= plantedPlantData.daysToGrow)
             {
                 SwitchStage(CropStage.ReadyToHarvest);
             }
         }
-        // 🟢 ถ้ารอน้ำอยู่ ให้กวักมือเรียกยูนิตที่ว่างงานแถวนั้นแบบ Auto!
-        else if (currentStage == CropStage.NeedsWater)
-        {
-            // 🔒 ถ้ามีคนงานประจำดูแลแปลงนี้อยู่แล้ว (hasDedicatedWorker) ไม่ต้องสุ่มเรียกคนอื่นมาซ้ำ
-            // ปล่อยให้ AutoCareTask ของคนงานประจำจัดการตามรอบเวลาของมันเอง
-            if (!isBeingServiced && !hasDedicatedWorker)
-            {
-                autoCallCooldown -= Time.deltaTime;
-                if (autoCallCooldown <= 0f)
-                {
-                    CallNearbyIdleUnitForWater();
-                    autoCallCooldown = 3f;
-                }
-            }
-        }
     }
 
-    // 🌱 ฟังก์ชันหยอดเมล็ดลงแปลง (คนเล่นคลิกจาก FarmingManager)
+    void Update()
+    {
+        // 🌙 กลางคืนหยุดโตและหยุดจับเวลาดูแลชั่วคราว
+        if (DayNightManager.Instance != null && DayNightManager.Instance.isNightTime) return;
+        if (currentStage != CropStage.Growing) return;
+
+        // 💧 นับถอยหลังน้ำ
+        waterCooldownTimer -= Time.deltaTime;
+        needsWaterNow = waterCooldownTimer <= perfectWindowSeconds;
+
+        // 🧪 นับถอยหลังปุ๋ย
+        fertilizerCooldownTimer -= Time.deltaTime;
+        needsFertilizerNow = fertilizerCooldownTimer <= perfectWindowSeconds;
+    }
+
     public bool PlantSeed(SO_PlantData plantData)
     {
         if (currentStage != CropStage.Empty) return false;
 
         plantedPlantData = plantData;
-        growthTimer = 0f;
-        SwitchStage(CropStage.NeedsFertilizer); // ปลูกปุ๊บ ต้องการปุ๋ยทันที!
+        daysGrown = 0;
+        careQualityScore = 100f;
+
+        RecalculateIntervalsFromPlantData();
+
+        waterCooldownTimer = waterInterval;
+        fertilizerCooldownTimer = fertilizerInterval;
+        needsWaterNow = false;
+        needsFertilizerNow = false;
+
+        SwitchStage(CropStage.Growing);
         return true;
     }
 
-    // ในฟังก์ชัน OnUnitInteract เมื่อยูนิตมาถึง
-    public void OnUnitInteract(UnitBase unit)
+    /// <summary>คำนวณ interval ใหม่จากค่าเริ่มต้นใน SO_PlantData (wateringsPerDay / fertilizingsPerDay)</summary>
+    private void RecalculateIntervalsFromPlantData()
     {
-        if (currentStage == CropStage.NeedsFertilizer)
-        {
-            if (unit.isCarrying && unit.carriedItem != null && unit.carriedItem == fertilizerItemData)
-            {
-                unit.DropItemAtVault();
-                SwitchStage(CropStage.NeedsWater);
-                isBeingServiced = false;
+        if (plantedPlantData == null) return;
+        float dayDuration = DayNightManager.Instance != null ? DayNightManager.Instance.dayDuration / 2  : 300f;
+        
+        // แบ่งเวลาต่อวันตามจำนวนครั้งที่ต้องดูแลต่อวัน
+        waterInterval = dayDuration / Mathf.Max(1f, plantedPlantData.wateringsPerDay);
+        fertilizerInterval = dayDuration / Mathf.Max(1f, plantedPlantData.fertilizingsPerDay);
+    }
 
-                // ทำเสร็จแล้ว วิ่งไปทำแปลงอื่นต่อทันที!
-                FinishServiceAndContinuePatrol(unit);
-            }
-            else
-            {
-                isBeingServiced = true;
-                // สั่งไปเอาของ แล้วระบุให้กลับมาทำที่ plot นี้ต่อ
-                unit.GoFetchItemAndReturn(fertilizerItemData, this);
-            }
-        }
-        else if (currentStage == CropStage.NeedsWater)
-        {
-            if (unit.isCarrying && unit.carriedItem != null && unit.carriedItem == waterItemData)
-            {
-                unit.DropItemAtVault();
-                SwitchStage(CropStage.Growing);
-                isBeingServiced = false;
+    /// <summary>
+    /// 🟢 ให้ CropPlotsGroup เรียกตอน "จ้างงาน" เพื่อ override ความถี่จากค่าที่ผู้เล่นตั้งในแผง UI
+    /// waterTimesPerCycle / fertilizeTimesPerCycle = กี่รอบต่อ 1 รอบการเติบโตของพืชต้นนี้
+    /// </summary>
+    public void SetCareFrequencyOverride(bool overrideWater, float waterTimesPerCycle, bool overrideFertilize, float fertilizeTimesPerCycle)
+    {
+        if (plantedPlantData == null) return;
 
-                // ทำเสร็จแล้ว วิ่งไปทำแปลงอื่นต่อทันที!
-                FinishServiceAndContinuePatrol(unit);
-            }
-            else
-            {
-                isBeingServiced = true;
-                unit.GoFetchItemAndReturn(waterItemData, this);
-            }
-        }
-        else if (currentStage == CropStage.ReadyToHarvest)
+        if (overrideWater)
+            waterInterval = plantedPlantData.timeToGrow / Mathf.Max(0.01f, waterTimesPerCycle);
+
+        if (overrideFertilize)
+            fertilizerInterval = plantedPlantData.timeToGrow / Mathf.Max(0.01f, fertilizeTimesPerCycle);
+    }
+
+    // เมื่อผู้เล่นมากดโต้ตอบกับแปลง (เช่นคลิกเก็บเกี่ยว)
+    public void PlayerInteract()
+    {
+        if (currentStage == CropStage.ReadyToHarvest)
         {
             HarvestCrop();
-            FinishServiceAndContinuePatrol(unit);
         }
     }
 
-    // 🔍 ฟังก์ชันให้แปลงผักสแกนหายูนิตว่างงานมารดน้ำ
-    private void CallNearbyIdleUnitForWater()
+    // 💧 รดน้ำ — ประเมินจาก "เวลาจริง" ตอนที่ลงมือ ไม่ใช่สุ่ม
+    public void PlayerPerformWater()
     {
-        Collider[] hitColliders = Physics.OverlapSphere(transform.position, 20f); // รัศมี 20 เมตร
-        foreach (var hitCollider in hitColliders)
+        EvaluateCareTiming(waterCooldownTimer, "Water");
+        waterCooldownTimer = waterInterval;
+        needsWaterNow = false;
+    }
+
+    // 🧪 ใส่ปุ๋ย
+    public void PlayerPerformFertilize(SO_FertilizerData fertData)
+    {
+        EvaluateCareTiming(fertilizerCooldownTimer, "Fertilizer");
+
+        if (fertData != null)
         {
-            UnitBase unit = hitCollider.GetComponent<UnitBase>();
-            // ถ้าเจอยูนิตที่กำลัง Idle ว่างงานอยู่ สั่งมันมาทำงานเลย!
-            if (unit != null && unit.currentState == UnitBehavior.Idle)
-            {
-                Debug.Log($"🤖 [Auto] แปลงผักเรียก {unit.name} มารดน้ำ!");
-                // 🔒 Lock ก่อน เพื่อกันเรียกซ้ำสองคนก่อนยูนิตจะมาถึง
-                isBeingServiced = true;
-                unit.MoveTo(GetInteractionPoint(), this);
-                break; // เรียกได้ตัวนึงก็พอแล้ว ออกลูป
-            }
+            ApplyFertilizer(fertData);
+        }
+        fertilizerCooldownTimer = fertilizerInterval;
+        needsFertilizerNow = false;
+    }
+
+    /// <summary>
+    /// 🟢 ประเมินจากเวลาถอยหลังจริง ณ ตอนลงมือ:
+    /// - timerAtAction &lt;= 0            → สายเกินไปแล้ว (Late)
+    /// - 0 &lt; timerAtAction &lt;= perfectWindow → จังหวะสมบูรณ์แบบ (Perfect)
+    /// - timerAtAction &gt; perfectWindow  → เร็วไป ยังไม่ถึงช่วงที่ควรทำ (Too Early)
+    /// </summary>
+    private void EvaluateCareTiming(float timerAtAction, string actionType)
+    {
+        if (timerAtAction <= 0f)
+        {
+            RegisterCareEvent(-10f);
+            ShowPopupFeedback("⚠️ LATE " + actionType + " (-10)", Color.red);
+        }
+        else if (timerAtAction <= perfectWindowSeconds)
+        {
+            RegisterCareEvent(0f);
+            ShowPopupFeedback("✨ PERFECT " + actionType + "!", Color.green);
+        }
+        else
+        {
+            RegisterCareEvent(-5f);
+            ShowPopupFeedback("⏳ TOO EARLY " + actionType + " (-5)", Color.yellow);
         }
     }
 
+    private void RegisterCareEvent(float scoreDelta) => careQualityScore = Mathf.Clamp(careQualityScore + scoreDelta, 0f, 100f);
 
-    // ตัวอย่างจุดเรียกใช้งานเมื่อทำภารกิจเสร็จใน CropPlots.cs (เช่น ใน OnUnitInteract หรือหลังเก็บเกี่ยว)
-    public void FinishServiceAndContinuePatrol(UnitBase unit)
+    private void ShowPopupFeedback(string message, Color color)
     {
-        if (unit == null) return;
-
-        isBeingServiced = false;
-
-        // รีเซ็ตเส้นทางและสั่งให้ยูนิตกลับเข้าสู่โหมดเดินตรวจแปลง/ทำฟาร์มต่อ
-        unit.agent.isStopped = false;
-        unit.CommandFarmingPatrol();
+        if (FloatingTextManager.Instance != null)
+        {
+            FloatingTextManager.Instance.ShowText(transform.position + Vector3.up * 1.5f, message, color);
+        }
     }
 
     public void HarvestCrop()
     {
         if (currentStage != CropStage.ReadyToHarvest || plantedPlantData == null) return;
 
-        // 🟢 เรียกใช้ระบบคำนวณคุณภาพธาตุอาหาร NPK และการกลายพันธุ์แทนการแอดของตรงๆ
-        EvaluateHarvestQuality(plantedPlantData);
+        ItemGrade finalGrade = CalculateFinalGrade();
+        Debug.Log($"🌾 [Harvest]: เก็บเกี่ยวสำเร็จ! เกรด: {finalGrade} (คะแนน: {careQualityScore})");
 
-        Debug.Log($"🌾 [Harvest]: เก็บเกี่ยวแปลงเสร็จสิ้น!");
+        Color gradeColor = GetGradeColor(finalGrade);
+        ShowPopupFeedback($"Grade: {finalGrade}", gradeColor);
 
-        // เคลียร์ค่าแปลงเตรียมปลูกรอบถัดไป
+        GivePlayerProductWithGrade(plantedPlantData.cropProduct, finalGrade);
+
         plantedPlantData = null;
         appliedFertilizer = null;
         isMutated = false;
-        currentSoilNutrients = new NutrientData(); // ล้างธาตุอาหารในดินรอบใหม่
+        currentSoilNutrients = new NutrientData();
+        needsWaterNow = false;
+        needsFertilizerNow = false;
         SwitchStage(CropStage.Empty);
-        isBeingServiced = false;
     }
 
-    private void SwitchStage(CropStage newStage)
+    public void TakeDamageFromEnemy(int damage)
     {
-        currentStage = newStage;
+        if (currentStage == CropStage.Empty) return;
 
-        if (currentVisualObject != null) Destroy(currentVisualObject);
-        if (plantedPlantData == null) return;
-
-        GameObject prefabToSpawn = null;
-        switch (currentStage)
-        {
-            case CropStage.NeedsFertilizer:
-            case CropStage.NeedsWater:
-                prefabToSpawn = plantedPlantData.seedPrefab;
-                break;
-            case CropStage.Growing:
-                prefabToSpawn = plantedPlantData.growingPrefab;
-                break;
-            case CropStage.ReadyToHarvest:
-                prefabToSpawn = plantedPlantData.fullyGrownPrefab;
-                break;
-        }
-
-        if (prefabToSpawn != null)
-        {
-            Vector3 originalPrefabScale = prefabToSpawn.transform.localScale;
-
-            // 🟢 ใช้ค่าจากตัวแปร plantHeightOffset ที่ปรับตั้งค่าได้ใน Inspector
-            Vector3 spawnPosition = new Vector3(transform.position.x, transform.position.y + plantHeightOffset, transform.position.z);
-
-            currentVisualObject = Instantiate(prefabToSpawn, spawnPosition, Quaternion.identity, transform);
-
-            currentVisualObject.transform.localScale = originalPrefabScale;
-        }
-    }
-    // ตัวอย่างลอจิกการคำนวณคุณภาพตอนเก็บเกี่ยว
-    // 🟢 ฟังก์ชันรับปุ๋ย (รองรับทั้งผู้เล่นกดใช้ผ่าน Manager หรือยูนิตขนมาส่ง)
-    public bool ApplyFertilizer(SO_FertilizerData fertilizer)
-    {
-        if (currentStage == CropStage.Empty || currentStage == CropStage.ReadyToHarvest)
-        {
-            Debug.LogWarning("แปลงนี้ยังไม่พร้อมรับปุ๋ย!");
-            return false;
-        }
-
-        appliedFertilizer = fertilizer;
-
-        // 1. เติมธาตุอาหาร N, P, K ของปุ๋ยสะสมลงไปในดินของแปลงนี้
-        currentSoilNutrients.nitrogen += fertilizer.providedNutrients.nitrogen;
-        currentSoilNutrients.phosphorus += fertilizer.providedNutrients.phosphorus;
-        currentSoilNutrients.potassium += fertilizer.providedNutrients.potassium;
-
-        Debug.Log(($"🧪 ใส่ปุ๋ย {fertilizer.itemName} สำเร็จ! ธาตุในดินตอนนี้ -> N:{currentSoilNutrients.nitrogen} P:{currentSoilNutrients.phosphorus} K:{currentSoilNutrients.potassium}"));
-
-        // 2. สุ่มเช็คโอกาสเกิดการกลายพันธุ์ (Mutation) ตามค่าของปุ๋ย
-        float roll = Random.Range(0f, 100f);
-        if (roll <= fertilizer.mutationChance && plantedPlantData != null && plantedPlantData.mutatedProduct != null)
-        {
-            isMutated = true;
-            Debug.Log($"✨ [Mutation!]: ปุ๋ยทำปฏิกิริยาสำเร็จ พืชในแปลงนี้เกิดการกลายพันธุ์!");
-        }
-
-        return true;
-    }
-
-    // 🟢 ฟังก์ชันประเมินคุณภาพตอนเก็บเกี่ยว
-    public void EvaluateHarvestQuality(SO_PlantData plantData)
-    {
-        if (plantData == null) return;
-
-        // ถ้าเกิดการกลายพันธุ์สำเร็จ ให้ผลผลิตกลายพันธุ์ทันที
-        if (isMutated && plantData.mutatedProduct != null)
-        {
-            GivePlayerProduct(plantData.mutatedProduct);
-            Debug.Log("✨ พืชกลายพันธุ์สำเร็จ! ได้ผลผลิตพิเศษหายาก");
-            return;
-        }
-
-        // คำนวณความต่างของธาตุอาหารที่ดินมีเทียบกับที่พืชชอบ (Ideal)
-        float diffN = Mathf.Abs(currentSoilNutrients.nitrogen - plantData.idealNutrients.nitrogen);
-        float diffP = Mathf.Abs(currentSoilNutrients.phosphorus - plantData.idealNutrients.phosphorus);
-        float diffK = Mathf.Abs(currentSoilNutrients.potassium - plantData.idealNutrients.potassium);
-
-        float totalError = diffN + diffP + diffK;
-
-        // เช็คเกรดพรีเมียม (ธาตุอาหารอยู่ในช่วงที่พืชยอมรับได้ toleranceRange)
-        if (totalError <= plantData.toleranceRange * 3)
-        {
-            GivePlayerProduct(plantData.premiumProduct != null ? plantData.premiumProduct : plantData.cropProduct);
-            Debug.Log("🌟 ยอดเยี่ยม! ธาตุอาหาร NPK ลงตัวเป๊ะ ได้ผลผลิตเกรดพรีเมียม!");
-        }
-        else
-        {
-            // โตแบบธรรมดา
-            GivePlayerProduct(plantData.cropProduct);
-            Debug.Log("🌱 พืชเติบโตตามปกติ (ธาตุอาหารยังไม่ค่อยลงตัว ลองปรับสูตรปุ๋ยดูคราวหน้า)");
-        }
-    }
-
-    // 🟢 ฟังก์ชันแจกจ่ายผลผลิตเข้ากระเป๋า
-    private void GivePlayerProduct(SO_ItemData productToGive)
-    {
-        if (productToGive == null || ResourceInventory.Instance == null) return;
-
-        int cropAmount = Random.Range(plantedPlantData.minProductAmount, plantedPlantData.maxProductAmount + 1);
-        ResourceInventory.Instance.AddResource(productToGive, cropAmount);
-
-        // คืนเมล็ดหรือของพลอยได้อื่นๆ (ถ้ามี)
-        if (plantedPlantData.cropSeed != null)
-            ResourceInventory.Instance.AddResource(plantedPlantData.cropSeed, cropAmount);
-
-        if (plantedPlantData.poopFertilizerProduct != null)
-            ResourceInventory.Instance.AddResource(plantedPlantData.poopFertilizerProduct, plantedPlantData.fertilizerAmount);
-    }
-
-    public void OnUnitExit(UnitBase unit)
-    {
-        // 🔒 เมื่อยูนิตถูก cancel กลางคัน ต้อง release lock ให้แปลงสามารถเรียกคนใหม่ได้
-        isBeingServiced = false;
-    }
-
-    // 🟢 จำเป็นต้องมีสำหรับ ITaskable
-    public Vector3 GetInteractionPoint() => transform.position;
-
-    /// <summary>
-    /// 🟢 [แก้บั๊ก] Implement ของจริงให้ IFertilizable — เดิม interface นี้ประกาศไว้ใน UnitBase.cs
-    /// แต่ CropPlots ไม่เคย implement มันเลย ทำให้ (task.targetPlot as IFertilizable)?.SetFertilizerType(...)
-    /// ใน UnitBase.TickAutoCareTasks() cast ไม่ผ่านและไม่ทำอะไรเลยแบบเงียบๆ ผลคือปุ๋ยที่เลือกจาก
-    /// CropPlotsGroup/แผง UI ไม่เคยถูกส่งมาถึงแปลงจริง สุดท้ายแปลงใช้ fertilizerItemData ที่ตั้งค้างไว้
-    /// ใน Inspector ของตัวเองแทน (เช่น "Fertilizer01" ที่ไม่มีในคลัง)
-    ///
-    /// ตอนนี้พอ implement แล้ว ทุกครั้งที่คนงานประจำจะไปใส่ปุ๋ยตามรอบ AutoCareTask ระบบจะเซ็ต
-    /// fertilizerItemData ของแปลงนี้ให้ตรงกับปุ๋ยที่ตั้งไว้ในกลุ่มก่อนเสมอ
-    /// </summary>
-    public void SetFertilizerType(SO_ItemData fertilizerItem)
-    {
-        if (fertilizerItem == null) return;
-        fertilizerItemData = fertilizerItem;
-    }
-
-    #region Destroy Product
-    // 🟢 ฟังก์ชันให้แปลงผักรับดาเมจจากศัตรูที่เข้ามาบุกแทะ
-    public void TakeDamageFromEnemy(int damageAmount)
-    {
-        if (currentStage == CropStage.Empty) return; // ถ้าแปลงว่างอยู่แล้ว ไม่ต้องตีซ้ำ
-
-        currentPlotHealth -= damageAmount;
-        Debug.LogWarning($"⚠️ [CropPlots]: แปลงผักโดนศัตรูโจมตี! เลือดแปลงเหลือ {currentPlotHealth}/{maxPlotHealth}");
-
-        // สามารถเพิ่มเอฟเฟกต์สั่นสะดุ้งตรงนี้ได้ถ้าต้องการ
+        currentPlotHealth = Mathf.Max(0, currentPlotHealth - damage);
+        Debug.LogWarning($"⚠ [CropPlots]: แปลง {gameObject.name} ถูกศัตรูโจมตี! HP เหลือ {currentPlotHealth}/{maxPlotHealth}");
 
         if (currentPlotHealth <= 0)
         {
@@ -335,35 +235,92 @@ public class CropPlots : MonoBehaviour, ITaskable, IFertilizable // 🟢 เพ�
         }
     }
 
-    // 💀 ฟังก์ชันทำลายพืชผลทิ้งเมื่อเลือดแปลงหมด
     private void DestroyCropCompletely()
     {
-        Debug.LogError($"💥 [CropPlots]: แปลงผักถูกทำลายเสียหายย่อยยับจนเกลี้ยงแปลงแล้ว!");
-
-        // เคลียร์ค่าข้อมูลพืชทั้งหมด
+        currentStage = CropStage.Empty;
+        currentPlotHealth = maxPlotHealth;
+        daysGrown = 0;
+        waterCooldownTimer = 0f;
+        fertilizerCooldownTimer = 0f;
+        careQualityScore = 100f;
         plantedPlantData = null;
         appliedFertilizer = null;
         isMutated = false;
         currentSoilNutrients = new NutrientData();
-        currentPlotHealth = maxPlotHealth; // รีเซ็ตเลือดแปลงเตรียมไว้ปลูกรอบใหม่
-        isBeingServiced = false;
+        needsWaterNow = false;
+        needsFertilizerNow = false;
 
-        // ลบโมเดลพืช 3D บนแปลงทิ้ง
         if (currentVisualObject != null)
         {
             Destroy(currentVisualObject);
+            currentVisualObject = null;
         }
 
-        // สลับสถานะกลับเป็นแปลงว่าง
-        SwitchStage(CropStage.Empty);
+        Debug.LogError($"💀 [CropPlots]: แปลง {gameObject.name} ถูกทำลายจากศัตรู!");
     }
-    #endregion
 
-
-    public void OnDrawGizmos()
+    private ItemGrade CalculateFinalGrade()
     {
-        Gizmos.color = Color.yellow;
+        float diffN = Mathf.Abs(currentSoilNutrients.nitrogen - plantedPlantData.idealNutrients.nitrogen);
+        float diffP = Mathf.Abs(currentSoilNutrients.phosphorus - plantedPlantData.idealNutrients.phosphorus);
+        float diffK = Mathf.Abs(currentSoilNutrients.potassium - plantedPlantData.idealNutrients.potassium);
+        float totalError = diffN + diffP + diffK;
 
-        Gizmos.DrawWireSphere(transform.position, 20f);
+        float finalScore = careQualityScore - (totalError * 0.5f);
+
+        if (finalScore >= 90f) return ItemGrade.S;
+        if (finalScore >= 75f) return ItemGrade.A;
+        if (finalScore >= 60f) return ItemGrade.B;
+        if (finalScore >= 45f) return ItemGrade.C;
+        if (finalScore >= 30f) return ItemGrade.D;
+        if (finalScore >= 15f) return ItemGrade.E;
+        return ItemGrade.F;
     }
+
+    private Color GetGradeColor(ItemGrade grade)
+    {
+        switch (grade)
+        {
+            case ItemGrade.S: return new Color(1f, 0.84f, 0f); // ทอง
+            case ItemGrade.A: return Color.green;    // เขียว
+            case ItemGrade.B: return Color.white;    // ขาว
+            case ItemGrade.C: return new Color(1f, 0.5f, 0f); // ส้ม
+            case ItemGrade.D: return Color.red;      // แดง
+            case ItemGrade.E: return Color.grey;     // เทา
+            case ItemGrade.F: return Color.black;    // ดำ
+            default: return Color.white;
+        }
+    }
+
+    private void GivePlayerProductWithGrade(SO_ItemData product, ItemGrade grade)
+    {
+        if (product == null || ResourceInventory.Instance == null) return;
+        int amount = Random.Range(plantedPlantData.minProductAmount, plantedPlantData.maxProductAmount + 1);
+        ResourceInventory.Instance.AddResourceWithGrade(product, amount, grade);
+    }
+
+    private void SwitchStage(CropStage newStage)
+    {
+        currentStage = newStage;
+        if (currentVisualObject != null) Destroy(currentVisualObject);
+        if (plantedPlantData == null) return;
+
+        GameObject prefabToSpawn = (currentStage == CropStage.Growing) ? plantedPlantData.growingPrefab : plantedPlantData.fullyGrownPrefab;
+        if (prefabToSpawn != null)
+        {
+            Vector3 spawnPos = new Vector3(transform.position.x, transform.position.y + plantHeightOffset, transform.position.z);
+            currentVisualObject = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity, transform);
+        }
+    }
+
+    public bool ApplyFertilizer(SO_FertilizerData fertilizer)
+    {
+        if (fertilizer == null) return false;
+        appliedFertilizer = fertilizer;
+        currentSoilNutrients.nitrogen += fertilizer.providedNutrients.nitrogen;
+        currentSoilNutrients.phosphorus += fertilizer.providedNutrients.phosphorus;
+        currentSoilNutrients.potassium += fertilizer.providedNutrients.potassium;
+        return true;
+    }
+
 }

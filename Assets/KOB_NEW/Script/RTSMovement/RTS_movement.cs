@@ -136,19 +136,11 @@ public class RTS_movement : MonoBehaviour
             {
                 if (unit != null)
                 {
-                    if (clickedTask is CropPlots)
+                    // ส่งเป้าหมายพิกัดหรือ Task ปกติ (เช่น GatheringBase จะถูกส่งผ่าน MoveTo)
+                    unit.MoveTo(hit.point, clickedTask);
+                    if (clickedTask is GhostBuilding ghost)
                     {
-                        // สั่งโหมดฟาร์ม (ระบบจะจัดสรรแปลงให้เองไม่ซ้ำตัว)
-                        unit.CommandFarmingPatrol();
-                    }
-                    else
-                    {
-                        // ส่งเป้าหมายพิกัดหรือ Task ปกติ (เช่น GatheringBase จะถูกส่งผ่าน MoveTo)
-                        unit.MoveTo(hit.point, clickedTask);
-                        if (clickedTask is GhostBuilding ghost)
-                        {
-                            unit.SetOrder(ghost);
-                        }
+                        unit.SetOrder(ghost);
                     }
                 }
             }

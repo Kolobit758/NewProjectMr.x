@@ -13,11 +13,13 @@ public class FarmPlotPanelUI : MonoBehaviour
 
     [Header("รดน้ำ")]
     public Toggle waterToggle;
-    public TMP_InputField waterIntervalMinutesInput; // เปลี่ยนเป็น TMP_InputField
+    [Tooltip("จำนวนรอบที่ต้องการรดน้ำ ต่อ 1 รอบการเติบโตของพืช (เช่น 2 = รดน้ำ 2 ครั้งกว่าจะโตเต็มที่)")]
+    public TMP_InputField waterTimesPerCycleInput;
 
     [Header("ใส่ปุ๋ย")]
     public Toggle fertilizeToggle;
-    public TMP_InputField fertilizeIntervalMinutesInput; // เปลี่ยนเป็น TMP_InputField
+    [Tooltip("จำนวนรอบที่ต้องการใส่ปุ๋ย ต่อ 1 รอบการเติบโตของพืช")]
+    public TMP_InputField fertilizeTimesPerCycleInput;
     [Tooltip("ลาก DynamicItemButtonSpawner ที่ตั้งค่า items = ปุ๋ยทั้งหมดในเกมไว้แล้ว มาใส่ตรงนี้ " +
              "จะ spawn ปุ่มให้เองครบทุกชนิดตอน Start ไม่ต้องลากปุ่มทีละอันเอง")]
     public DynamicItemButtonSpawner fertilizerButtonSpawner;
@@ -28,8 +30,8 @@ public class FarmPlotPanelUI : MonoBehaviour
     public float workerSearchRadius = 0f;
 
     [Header("แสดงผล (ไม่บังคับ)")]
-    public TextMeshProUGUI groupNameLabel; // เปลี่ยนเป็น TextMeshProUGUI
-    public TextMeshProUGUI assignedWorkerCountLabel; // เปลี่ยนเป็น TextMeshProUGUI
+    public TextMeshProUGUI groupNameLabel;
+    public TextMeshProUGUI assignedWorkerCountLabel;
 
     private CropPlotsGroup currentGroup;
     private SO_ItemData _selectedFertilizerItem;
@@ -40,36 +42,23 @@ public class FarmPlotPanelUI : MonoBehaviour
 
     void Start()
     {
-        Debug.Log("Start");
-
-        if (findWorkerButton != null)
-        {
-            Debug.Log("Assign");
-
-            findWorkerButton.onClick.AddListener(() =>
-            {
-                Debug.Log("BUTTON CLICK");
-            });
-
-            findWorkerButton.onClick.AddListener(OnFindWorkerClicked);
-        }
         if (waterToggle != null) waterToggle.onValueChanged.AddListener(_ => PushUIToGroup());
-        if (waterIntervalMinutesInput != null) waterIntervalMinutesInput.onEndEdit.AddListener(_ => PushUIToGroup());
+        if (waterTimesPerCycleInput != null) waterTimesPerCycleInput.onEndEdit.AddListener(_ => PushUIToGroup());
 
         if (fertilizeToggle != null) fertilizeToggle.onValueChanged.AddListener(_ => PushUIToGroup());
-        if (fertilizeIntervalMinutesInput != null) fertilizeIntervalMinutesInput.onEndEdit.AddListener(_ => PushUIToGroup());
+        if (fertilizeTimesPerCycleInput != null) fertilizeTimesPerCycleInput.onEndEdit.AddListener(_ => PushUIToGroup());
 
         if (fertilizerButtonSpawner != null)
         {
             fertilizerButtonSpawner.Spawn(OnFertilizerItemPicked);
         }
 
-        if (findWorkerButton != null) findWorkerButton.onClick.AddListener(OnFindWorkerClicked);
+        if (findWorkerButton != null)
+        {
+            findWorkerButton.onClick.AddListener(OnFindWorkerClicked);
+        }
 
         HidePanel();
-
-        Debug.Log(findWorkerButton.name);
-        Debug.Log(findWorkerButton.GetInstanceID());
     }
 
     private void HandleFarmPlotClicked(CropPlotsGroup group)
@@ -96,12 +85,12 @@ public class FarmPlotPanelUI : MonoBehaviour
         _isUpdatingUIFromCode = true;
 
         if (waterToggle != null) waterToggle.SetIsOnWithoutNotify(currentGroup.careEnabledWater);
-        if (waterIntervalMinutesInput != null)
-            waterIntervalMinutesInput.text = SecondsToMinutesText(currentGroup.waterIntervalSeconds);
+        if (waterTimesPerCycleInput != null)
+            waterTimesPerCycleInput.text = currentGroup.waterTimesPerCycle.ToString("0.##");
 
         if (fertilizeToggle != null) fertilizeToggle.SetIsOnWithoutNotify(currentGroup.careEnabledFertilize);
-        if (fertilizeIntervalMinutesInput != null)
-            fertilizeIntervalMinutesInput.text = SecondsToMinutesText(currentGroup.fertilizeIntervalSeconds);
+        if (fertilizeTimesPerCycleInput != null)
+            fertilizeTimesPerCycleInput.text = currentGroup.fertilizeTimesPerCycle.ToString("0.##");
 
         _selectedFertilizerItem = currentGroup.fertilizerItem;
 
@@ -109,7 +98,7 @@ public class FarmPlotPanelUI : MonoBehaviour
             groupNameLabel.text = $"{currentGroup.name} ({currentGroup.plots.Count} แปลง)";
 
         if (assignedWorkerCountLabel != null)
-            assignedWorkerCountLabel.text = $"คนงานดูแลอยู่: {currentGroup.assignedWorkers.Count}";
+            assignedWorkerCountLabel.gameObject.SetActive(false); // ซ่อนไปเลยเพราะไม่มีคนงานแล้ว
 
         _isUpdatingUIFromCode = false;
     }
@@ -120,74 +109,38 @@ public class FarmPlotPanelUI : MonoBehaviour
         if (_isUpdatingUIFromCode || currentGroup == null) return;
 
         currentGroup.careEnabledWater = waterToggle == null || waterToggle.isOn;
-        currentGroup.waterIntervalSeconds = ParseMinutesToSeconds(waterIntervalMinutesInput, 5f);
+        currentGroup.waterTimesPerCycle = ParseTimesPerCycle(waterTimesPerCycleInput, 2f);
 
         currentGroup.careEnabledFertilize = fertilizeToggle != null && fertilizeToggle.isOn;
-        currentGroup.fertilizeIntervalSeconds = ParseMinutesToSeconds(fertilizeIntervalMinutesInput, 10f);
+        currentGroup.fertilizeTimesPerCycle = ParseTimesPerCycle(fertilizeTimesPerCycleInput, 1f);
         currentGroup.fertilizerItem = _selectedFertilizerItem;
     }
 
+    private float ParseTimesPerCycle(TMP_InputField field, float fallback)
+    {
+        if (field != null && float.TryParse(field.text, out float parsed) && parsed > 0f)
+            return parsed;
+        return fallback;
+    }
+
     /// <summary>
-    /// 🟢 หัวใจของฟีเจอร์: หา unit ว่างงานที่ใกล้ที่สุด 1 ตัว มามอบหมายดูแล "ทุกแปลงในกลุ่มนี้"
+    /// บันทึกการตั้งค่าลงแปลง
     /// </summary>
     private void OnFindWorkerClicked()
     {
-        if (currentGroup == null || RTS_movement.instance == null) return;
-
-        Debug.Log("Find worker");
+        if (currentGroup == null) return;
 
         PushUIToGroup(); // กันเผื่อผู้เล่นพิมพ์ค่าค้าง ยังไม่กด Enter ก็กดหาคนงานเลย
 
-        Vector3 center = currentGroup.GetCenterPoint();
-        UnitBase best = null;
-        float minDst = Mathf.Infinity;
+        currentGroup.ApplySettingsToPlots();
+        PullGroupIntoUI(); // รีเฟรชหน้าต่าง
 
-        foreach (var unit in RTS_movement.instance.allUnits)
-        {
-            if (unit == null) continue;
-            if (unit.currentState != UnitBehavior.Idle) continue;
-            if (unit.isCarrying) continue;
-            if (unit.isSleepingInShelter) continue;
-            if (!unit.canAutoFarm) continue; // ต้องปลดล็อกสกิลนี้ก่อน ไม่งั้น AutoCareTask จะไม่ถูก tick
-
-            float dst = Vector3.Distance(unit.transform.position, center);
-            if (workerSearchRadius > 0f && dst > workerSearchRadius) continue;
-
-            if (dst < minDst)
-            {
-                minDst = dst;
-                best = unit;
-            }
-        }
-
-        if (best == null)
-        {
-            Debug.Log("⚠️ ไม่พบยูนิตว่างงานที่ปลดล็อกสกิล Auto Farm อยู่แถวนี้ตอนนี้");
-            return;
-        }
-
-        currentGroup.ApplySettingsToWorker(best);
-        PullGroupIntoUI(); // รีเฟรชจำนวนคนงานที่แสดงผล
-
-        Debug.Log($"✅ มอบหมาย {best.name} ให้ดูแล '{currentGroup.name}' ({currentGroup.plots.Count} แปลง) แล้ว");
+        Debug.Log($"✅ บันทึกการตั้งค่า '{currentGroup.name}' ({currentGroup.plots.Count} แปลง) แล้ว");
     }
 
     private void OnFertilizerItemPicked(SO_ItemData item)
     {
         _selectedFertilizerItem = item;
-        Debug.Log("OnFertilizerItemPicked");
         PushUIToGroup();
     }
-
-    private float ParseMinutesToSeconds(TMP_InputField field, float fallbackMinutes)
-    {
-        float minutes = fallbackMinutes;
-        if (field != null && float.TryParse(field.text, out float parsed) && parsed > 0f)
-        {
-            minutes = parsed;
-        }
-        return minutes * 60f;
-    }
-
-    private string SecondsToMinutesText(float seconds) => (seconds / 60f).ToString("0.##");
 }

@@ -1021,6 +1021,9 @@ MonoBehaviour:
   defaultSpeed: 0
   autoTaskScanRadius: 10
   currentJobType: 0
+  canAutoGather: 0
+  canAutoFarm: 0
+  autoCareTasks: []
   attackRange: 2
   attackCooldown: 1.5
   damage: 0
@@ -1030,6 +1033,7 @@ MonoBehaviour:
   isExhausted: 0
   isSleepingInShelter: 0
   unitFaction: 0
+  waterItemData: {fileID: 11400000, guid: 8fedf311547d09e41883e61e4f7322f3, type: 2}
 --- !u!120 &905725136808040043
 LineRenderer:
   serializedVersion: 2

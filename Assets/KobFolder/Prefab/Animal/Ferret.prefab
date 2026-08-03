@@ -1033,6 +1033,7 @@ MonoBehaviour:
   isExhausted: 0
   isSleepingInShelter: 0
   unitFaction: 0
+  waterItemData: {fileID: 11400000, guid: 8fedf311547d09e41883e61e4f7322f3, type: 2}
 --- !u!120 &9196408634684629621
 LineRenderer:
   serializedVersion: 2

@@ -22,33 +22,9 @@ public enum UnitBehavior
 public enum JobType
 {
     None,
-    Gathering,
-    Farming
-}
-public enum AutoCareType
-{
-    Water,
-    Fertilize
+    Gathering
 }
 
-/// <summary>
-/// ให้ CropPlots ไป implement ทีหลังได้ (ตอนนี้ยังไม่มีก็ไม่เป็นไร โค้ดจะข้ามเฉยๆ)
-/// เพื่อรับค่าว่า "จะใส่ปุ๋ยอะไร" ก่อนสั่ง Interact
-/// </summary>
-public interface IFertilizable
-{
-    void SetFertilizerType(SO_ItemData fertilizerItem);
-}
-
-[System.Serializable]
-public class AutoCareTask
-{
-    public CropPlots targetPlot;
-    public AutoCareType careType;
-    public float intervalSeconds = 60f;
-    public SO_ItemData fertilizerItem; // ใช้เฉพาะตอน careType == Fertilize
-    [HideInInspector] public float timer;
-}
 
 public class UnitBase : MonoBehaviour
 {
@@ -96,10 +72,6 @@ public class UnitBase : MonoBehaviour
     private SO_ItemData autoRepeatResourceType;
     [Header("Auto Upgrades (ปลดล็อกทีละสกิลผ่าน Building Upgrade)")]
     public bool canAutoGather = false; // สกิล 1: เก็บทรัพยากรซ้ำอัตโนมัติ (ค่าเริ่มต้น = ปิด, เก็บครั้งเดียวจบ)
-    public bool canAutoFarm = false;   // ปลดล็อกให้ unit ดูแลแปลง (patrol/water/fertilize) เองได้
-
-    [Header("Auto Care Tasks (สกิล 2-3: รดน้ำ/ใส่ปุ๋ยตามเวลา ต่อแปลง)")]
-    public List<AutoCareTask> autoCareTasks = new List<AutoCareTask>();
 
     [Header("Combat (priority ต่ำสุด)")]
     public float attackRange = 2f;
@@ -115,6 +87,9 @@ public class UnitBase : MonoBehaviour
     public bool isSleepingInShelter = false;
     [Header("Combat Faction (Rock-Paper-Scissors)")]
     public FactionType unitFaction = FactionType.AnimalLarge; // เลือกประเภทของยูนิตนี้ใน Inspector ได้เลย
+                                                              // 🟢 เพิ่มฟิลด์นี้ใน UnitBase (เดิมมีการอ้างถึงแต่ไม่ได้ประกาศไว้)
+    [Header("Auto Care")]
+    public SO_ItemData waterItemData;
 
 
     void Awake()
@@ -141,7 +116,6 @@ public class UnitBase : MonoBehaviour
     {
         RunStateMachine();
         UpdateRopeVisual();
-        TickAutoCareTasks();
     }
 
     private void RunStateMachine()
@@ -155,7 +129,7 @@ public class UnitBase : MonoBehaviour
             case UnitBehavior.FetchItem_ReturnToOrder: HandleMovingToOrderState(); break;
             case UnitBehavior.DraggingToVault: break;
             case UnitBehavior.Attacking: HandleCombatBehavior(); break;
-            case UnitBehavior.FarmingPatrol: HandleFarmingPatrolState(); break;
+            // case UnitBehavior.FarmingPatrol: HandleFarmingPatrolState(); break;
         }
     }
 
@@ -195,12 +169,6 @@ public class UnitBase : MonoBehaviour
                     CommandGather(nearbyNode);
                     return;
                 }
-            }
-
-            // 🔒 [Auto Farming Patrol]: ปิดไว้ก่อนจนกว่าจะปลดล็อก canAutoFarm
-            if (currentJobType == JobType.Farming)
-            {
-                currentJobType = JobType.None; // เคลียร์ job เดิม ไม่วนลูปฟาร์มเอง
             }
 
             TryFindAndExecuteNearbyTask();
@@ -421,16 +389,7 @@ public class UnitBase : MonoBehaviour
             }
         }
 
-        if (nearestTask == null) return;
-
-        if (nearestTask is CropPlots plot)
-        {
-            if (plot.currentStage == CropStage.NeedsFertilizer || plot.currentStage == CropStage.NeedsWater)
-            {
-                CommandInteract(plot);
-            }
-        }
-        else if (nearestTask is GhostBuilding)
+        if (nearestTask is GhostBuilding)
         {
             CommandInteract(nearestTask);
         }
@@ -689,111 +648,14 @@ public class UnitBase : MonoBehaviour
     }
     #endregion
 
-    #region Farming
-    public void CommandFarmingPatrol()
-    {
-        if (isSleepingInShelter) return; // 🔒 กำลังหลับอยู่ สั่งงานไม่ได้
-        if (!canAutoFarm) return;
-        AbandonCurrentOrder();
-        currentJobType = JobType.Farming;
-        ChangeState(UnitBehavior.FarmingPatrol);
-        FindAndWalkToNextFarmTask();
-    }
 
-    private void HandleFarmingPatrolState()
-    {
-        if (agent.pathPending) return;
 
-        // เช็คว่าถึงเป้าหมาย (แปลงผัก) หรือยัง
-        if (agent.remainingDistance <= agent.stoppingDistance)
-        {
-            agent.isStopped = true;
-
-            // ถ้ามี Order เป็น CropPlots อยู่ และยังไม่ได้จัดการ ให้สั่ง Interact ทันที
-            if (currentOrder is CropPlots plot)
-            {
-                // ป้องกันการเรียกซ้ำรัวๆ ถ้ากำลังทำงานอยู่
-                if (currentState != UnitBehavior.Interacting)
-                {
-                    ChangeState(UnitBehavior.Interacting);
-                    plot.OnUnitInteract(this);
-                }
-                return;
-            }
-
-            // ถ้าไม่มีเป้าหมาย ให้หาแปลงถัดไปเดินไปเรื่อยๆ (Patrol)
-            FindAndWalkToNextFarmTask();
-        }
-    }
-
-    public void FindAndWalkToNextFarmTask()
-    {
-        Collider[] hits = Physics.OverlapSphere(transform.position, 20f);
-        CropPlots bestPlot = null;
-        float minDst = Mathf.Infinity;
-
-        foreach (var hit in hits)
-        {
-            CropPlots plot = hit.GetComponentInParent<CropPlots>();
-
-            if (plot != null && plot.currentStage != CropStage.Empty && plot.currentStage != CropStage.Growing)
-            {
-                bool isMyCurrentPlot = ((object)currentOrder == (object)plot);
-
-                if (!plot.isBeingServiced || isMyCurrentPlot)
-                {
-                    float dst = Vector3.Distance(transform.position, plot.transform.position);
-                    if (dst < minDst)
-                    {
-                        minDst = dst;
-                        bestPlot = plot;
-                    }
-                }
-            }
-        }
-
-        if (bestPlot != null)
-        {
-            if (currentOrder is CropPlots oldPlot && oldPlot != bestPlot)
-            {
-                oldPlot.isBeingServiced = false;
-            }
-
-            currentOrder = bestPlot;
-            bestPlot.isBeingServiced = true;
-
-            agent.isStopped = false;
-            agent.SetDestination(bestPlot.GetInteractionPoint());
-            ChangeState(UnitBehavior.FarmingPatrol);
-        }
-        else
-        {
-            currentOrder = null;
-            agent.isStopped = false;
-
-            Vector3 randomDirection = Random.insideUnitSphere * 6f;
-            randomDirection += transform.position;
-
-            if (NavMesh.SamplePosition(randomDirection, out NavMeshHit navHit, 6f, NavMesh.AllAreas))
-            {
-                agent.SetDestination(navHit.position);
-            }
-
-            ChangeState(UnitBehavior.FarmingPatrol);
-        }
-    }
-    #endregion
 
     public void MoveTo(Vector3 position, ITaskable task = null)
     {
-        // 🟢 เปลี่ยนจากการเช็ค GatheringBase ตรงๆ เป็น ResourceNodeBase
         if (task is ResourceNodeBase resourceNode)
         {
             CommandGather(resourceNode);
-        }
-        else if (task is CropPlots)
-        {
-            CommandFarmingPatrol();
         }
         else if (task != null)
         {
@@ -804,6 +666,8 @@ public class UnitBase : MonoBehaviour
             CommandMoveTo(position);
         }
     }
+
+    public void SetAutoGatherUpgrade(bool unlocked) => canAutoGather = unlocked;
 
     public void GoFetchItemAndReturn(SO_ItemData itemData, ITaskable ultimateTask, int amount = 1)
     {
@@ -819,71 +683,5 @@ public class UnitBase : MonoBehaviour
 
     }
 
-    #region Auto Care (Water / Fertilize) Scheduling
-    private void TickAutoCareTasks()
-    {
-        if (autoCareTasks.Count == 0) return;
 
-        bool canTakeNewTask = canAutoFarm
-            && currentState == UnitBehavior.Idle
-            && !HasOrder
-            && !isCarrying
-            && !isSleepingInShelter;
-
-        foreach (var task in autoCareTasks)
-        {
-            if (task.targetPlot == null) continue;
-
-            task.timer -= Time.deltaTime;
-            if (task.timer > 0f) continue;
-            if (!canTakeNewTask) continue; // ถึงเวลาแล้วแต่ตัวไม่ว่าง รอรอบถัดไป
-
-            task.timer = task.intervalSeconds; // รีเซ็ตนับใหม่ทันทีตอนออกเดินทาง
-
-            if (task.careType == AutoCareType.Fertilize)
-            {
-                (task.targetPlot as IFertilizable)?.SetFertilizerType(task.fertilizerItem);
-            }
-
-            CommandInteract(task.targetPlot);
-            canTakeNewTask = false; // ต่อเฟรมเดียว ให้ทำได้แค่ 1 งาน
-        }
-    }
-
-    public void AssignAutoWaterTask(CropPlots plot, float intervalSeconds)
-    {
-        if (plot == null) return;
-        RemoveAutoCareTask(plot);
-        autoCareTasks.Add(new AutoCareTask
-        {
-            targetPlot = plot,
-            careType = AutoCareType.Water,
-            intervalSeconds = intervalSeconds,
-            timer = intervalSeconds
-        });
-    }
-
-    public void AssignAutoFertilizeTask(CropPlots plot, float intervalSeconds, SO_ItemData fertilizerType)
-    {
-        if (plot == null) return;
-        RemoveAutoCareTask(plot);
-        autoCareTasks.Add(new AutoCareTask
-        {
-            targetPlot = plot,
-            careType = AutoCareType.Fertilize,
-            intervalSeconds = intervalSeconds,
-            fertilizerItem = fertilizerType,
-            timer = intervalSeconds
-        });
-    }
-
-    public void RemoveAutoCareTask(CropPlots plot)
-    {
-        autoCareTasks.RemoveAll(t => t.targetPlot == plot);
-    }
-
-    // เรียกจากตึกอัพเกรด/UI ปลดล็อกสกิล
-    public void SetAutoGatherUpgrade(bool unlocked) => canAutoGather = unlocked;
-    public void SetAutoFarmUpgrade(bool unlocked) => canAutoFarm = unlocked;
-    #endregion
 }

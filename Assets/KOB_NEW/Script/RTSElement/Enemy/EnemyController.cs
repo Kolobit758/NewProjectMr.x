@@ -341,11 +341,11 @@ public class EnemyController : MonoBehaviour
             }
         }
         // 🌾 แล้วค่อยเช็คแปลงพืช
-        else if (currentTarget.TryGetComponent<CropPlots>(out var plot))
-        {
-            Debug.Log($"🌾 [Enemy]: {enemyData.enemyName} กำลังแทะแปลงพืช! ดาเมจ: {damageInt}");
-            plot.TakeDamageFromEnemy(damageInt);
-        }
+        // else if (currentTarget.TryGetComponent<CropPlots>(out var plot))
+        // {
+        //     Debug.Log($"🌾 [Enemy]: {enemyData.enemyName} กำลังแทะแปลงพืช! ดาเมจ: {damageInt}");
+        //     plot.TakeDamageFromEnemy(damageInt);
+        // }
         // ⚔️ สุดท้ายค่อยเช็คยูนิตเรา (ต้องมีทั้ง UnitBase และ CharacterStats)
         else if (currentTarget.TryGetComponent<UnitBase>(out var unitBase)
                  && currentTarget.TryGetComponent<CharacterStats>(out var targetStats)
