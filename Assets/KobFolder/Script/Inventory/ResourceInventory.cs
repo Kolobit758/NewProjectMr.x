@@ -406,4 +406,18 @@ public class ResourceInventory : MonoBehaviour
         return null;
     }
     #endregion
+
+    // 📦 ฟังก์ชันเพิ่มไอเทมเข้า Inventory พร้อมแนบเกรดผลผลิต
+    public void AddResourceWithGrade(SO_ItemData item, int amount, ItemGrade grade)
+    {
+        if (item == null) return;
+
+        // เรียกใช้ฟังก์ชัน AddResource ปกติเพื่อเพิ่มจำนวนไอเทมเข้าคลัง
+        AddResource(item, amount);
+
+        // [หมายเหตุ]: ถ้าในโปรเจกต์ของคุณมีการทำระบบแยกช่องเก็บไอเทมตามเกรด 
+        // สามารถเขียนโค้ดบันทึกเกรดของไอเทมชิ้นนั้นๆ เพิ่มเติมตรงจุดนี้ได้เลยครับ
+
+        Debug.Log($"📦 [Inventory]: ได้รับ {item.itemName} จำนวน {amount} ชิ้น (เกรด: <b>{grade}</b>)");
+    }
 }
