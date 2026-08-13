@@ -4,6 +4,7 @@ using TMPro;
 using System.Collections;
 using System.Collections.Generic;
 
+[RequireComponent(typeof(UIAnimationController))] // 🟢 บังคับให้ต้องมีสคริปต์อนิเมชันร่วมด้วย
 public class ShopUIController : MonoBehaviour
 {
     public static ShopUIController Instance { get; private set; }
@@ -14,12 +15,20 @@ public class ShopUIController : MonoBehaviour
     public GameObject orderButtonPrefab;     // Prefab ปุ่มออเดอร์ในร้านค้า
 
     [Header("Popup Reward UI")]
-    public TMP_Text rewardPopupText;         // Text เด้งบอกจำนวนเงินที่ได้รับ (วางไว้ตำแหน่งเด่นๆ ใน ShopPanel หรือหน้าจอหลัก)
+    public TMP_Text rewardPopupText;         // Text เด้งบอกจำนวนเงินที่ได้รับ
+
+    private UIAnimationController animController; // 🟢 ตัวควบคุมแอนิเมชันและฝุ่น
 
     void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
+
+        // ดึงคอมโพเนนต์แอนิเมชันจากหน้าต่าง Shop Panel
+        if (shopPanel != null)
+        {
+            animController = shopPanel.GetComponent<UIAnimationController>();
+        }
     }
 
     void Start()
@@ -28,27 +37,40 @@ public class ShopUIController : MonoBehaviour
         if (rewardPopupText != null) rewardPopupText.gameObject.SetActive(false);
     }
 
-    // 🟢 1. ฟังก์ชันเปิดหน้าต่าง Shop (เรียกใช้จากปุ่มตึกร้านค้า หรือคีย์ลัด)
+    // 🟢 1. ฟังก์ชันเปิดหน้าต่าง Shop ผ่าน UIAnimationController (สไลด์ + ฝุ่น)
     public void OpenShop()
     {
         if (shopPanel != null)
         {
-            shopPanel.SetActive(true);
+            if (animController != null)
+            {
+                animController.OpenUI(); // เปิดพร้อมแอนิเมชันและฝุ่น
+            }
+            else
+            {
+                shopPanel.SetActive(true);
+            }
             RefreshShopUI(); // รีเฟรชข้อมูลออเดอร์ใหม่ทุกครั้งที่เปิด
         }
     }
 
-    // ปิดหน้าต่าง Shop
+    // 🔴 ปิดหน้าต่าง Shop ผ่าน UIAnimationController (สไลด์ออก + ฝุ่น แล้วปิดตัวเอง)
     public void CloseShop()
     {
         if (shopPanel != null)
         {
-            shopPanel.SetActive(false);
+            if (animController != null)
+            {
+                animController.CloseUI(); // ปิดพร้อมแอนิเมชันสไลด์เก็บและฝุ่น
+            }
+            else
+            {
+                shopPanel.SetActive(false);
+            }
         }
     }
 
-    // 🟢 2. สร้างและอัปเดตหน้าจอ Grid Layout ของออเดอร์ทั้งหมด
-    // 🟢 สร้างและรีเฟรชปุ่มออเดอร์ทั้งหมดใน Grid Layout
+    // 🟢 2. สร้างและรีเฟรชปุ่มออเดอร์ทั้งหมดใน Grid Layout
     public void RefreshShopUI()
     {
         if (orderButtonContainer == null || orderButtonPrefab == null) return;
@@ -68,7 +90,6 @@ public class ShopUIController : MonoBehaviour
             Button btn = btnObj.GetComponent<Button>();
             Image btnImage = btnObj.GetComponent<Image>();
 
-            // ค้นหา Text ทั้งสองตัวจาก Prefab (รองรับทั้งหาผ่าน ContentContainer หรือหาจากตัวลูกตรงๆ)
             TMP_Text titleText = null;
             TMP_Text reqText = null;
 
@@ -79,30 +100,21 @@ public class ShopUIController : MonoBehaviour
                 reqText = contentContainer.Find("RequirementText")?.GetComponent<TMP_Text>();
             }
 
-            // ถ้าหาใน ContentContainer ไม่เจอ ลองหาจากตัวปุ่มตรงๆ อีกรอบ
             if (titleText == null) titleText = btnObj.transform.Find("TitleText")?.GetComponent<TMP_Text>();
             if (reqText == null) reqText = btnObj.transform.Find("RequirementText")?.GetComponent<TMP_Text>();
 
-            // เช็คว่าไอเทมทุกตัวในออเดอร์นี้พอไหม
             bool canComplete = CheckIfOrderCanBeCompleted(order);
 
-            // เปลี่ยนสีพื้นหลังปุ่ม: ของครบ = สีเหลือง, ของไม่ครบ = สีเทา
             if (btnImage != null)
             {
                 btnImage.color = canComplete ? new Color(1f, 0.85f, 0.2f) : new Color(0.6f, 0.6f, 0.6f);
             }
 
-            // 1. เซ็ตข้อความที่ TitleText (ชื่อออเดอร์ + รางวัล)
             if (titleText != null)
             {
                 titleText.text = $"<b>{order.orderTitle}</b> : Reward: {order.rewardGold} G";
             }
-            else
-            {
-                Debug.LogWarning("⚠️ [ShopUI]: หา GameObject ที่ชื่อ 'TitleText' ไม่เจอใน Prefab ปุ่ม!");
-            }
 
-            // 2. เซ็ตข้อความที่ RequirementText (รายการวัตถุดิบ 1-3 อย่าง)
             if (reqText != null)
             {
                 string reqInfo = "Requires:\n";
@@ -115,15 +127,9 @@ public class ShopUIController : MonoBehaviour
                 }
                 reqText.text = reqInfo;
             }
-            else
-            {
-                Debug.LogWarning("⚠️ [ShopUI]: หา GameObject ที่ชื่อ 'RequirementText' ไม่เจอใน Prefab ปุ่ม! กรุณาตรวจสอบชื่อใน Hierarchy");
-            }
 
-            // เปิด/ปิดการคลิกปุ่มตามความพร้อมของวัตถุดิบ
             btn.interactable = canComplete;
 
-            // ผูก Event ปุ่มกดส่งออเดอร์
             ProceduralOrder targetOrderRef = order;
             btn.onClick.AddListener(() =>
             {
@@ -132,7 +138,6 @@ public class ShopUIController : MonoBehaviour
         }
     }
 
-    // ฟังก์ชันเช็คว่าออเดอร์นี้ของพอไหม
     bool CheckIfOrderCanBeCompleted(ProceduralOrder order)
     {
         foreach (var req in order.requirements)
@@ -145,7 +150,6 @@ public class ShopUIController : MonoBehaviour
         return true;
     }
 
-    // 🟢 3. เมื่อผู้เล่นกดปุ่มส่งขายออเดอร์
     void OnClickDeliverOrder(ProceduralOrder order)
     {
         if (ShopOrderManager.Instance != null)
@@ -156,17 +160,12 @@ public class ShopUIController : MonoBehaviour
             if (success)
             {
                 Debug.Log($"💰 [Shop]: Sold order successfully! Earned {earnedGold} Gold.");
-
-                // อัปเดตหน้าจอ UI ร้านค้าใหม่ (ปุ่มจะหายไปหรือเปลี่ยนสถานะ)
                 RefreshShopUI();
-
-                // แสดง Popup เด้งรับเงินรางวัลแบบ Smooth Ease-In
                 StartCoroutine(ShowRewardPopupRoutine(earnedGold));
             }
         }
     }
 
-    // 🟢 4. แอนิเมชัน Popup เด้งรับเงินรางวัล
     private IEnumerator ShowRewardPopupRoutine(int goldAmount)
     {
         if (rewardPopupText != null)
@@ -176,7 +175,7 @@ public class ShopUIController : MonoBehaviour
 
             RectTransform rectTrans = rewardPopupText.GetComponent<RectTransform>();
             Vector3 startPos = rectTrans.localPosition;
-            Vector3 targetPos = startPos + new Vector3(0f, 60f, 0f); // ลอยขึ้นด้านบน 60 หน่วย
+            Vector3 targetPos = startPos + new Vector3(0f, 60f, 0f);
 
             Color startColor = rewardPopupText.color;
             float duration = 1.2f;
@@ -187,10 +186,8 @@ public class ShopUIController : MonoBehaviour
                 elapsed += Time.deltaTime;
                 float t = elapsed / duration;
 
-                // ใช้ Ease-In (t * t) ขยับสมูทขึ้น
                 rectTrans.localPosition = Vector3.Lerp(startPos, targetPos, t * t);
 
-                // เฟดจางลงช่วงท้าย
                 if (t > 0.6f)
                 {
                     float alpha = Mathf.Lerp(1f, 0f, (t - 0.6f) / 0.4f);

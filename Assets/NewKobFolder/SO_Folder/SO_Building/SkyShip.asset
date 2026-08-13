@@ -10,19 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ff10967e5a1d4b144990992e47328442, type: 3}
-  m_Name: Compost
+  m_Name: SkyShip
   m_EditorClassIdentifier: 
-  itemId: Compost
-  itemName: Compost
+  itemId: SkyShip
+  itemName: SkyShip
   itemType: 2
   itemIcon: {fileID: 0}
   detail: 
-  dropItemPrefab: {fileID: 2980658224616171154, guid: c3cd3017a613fe74e8b002f5409782f8, type: 3}
-  buildingGhostPrefab: {fileID: 8153355746914050271, guid: e6cebe82a625e9f4ca4b041e8a1a272c, type: 3}
-  Realprefab: {fileID: 2980658224616171154, guid: c3cd3017a613fe74e8b002f5409782f8, type: 3}
+  dropItemPrefab: {fileID: 0}
+  buildingGhostPrefab: {fileID: 4129138084641844201, guid: b0c8bef416609a54fbb7b83d8d56e023, type: 3}
+  Realprefab: {fileID: 2126102899758733353, guid: c5145c577cd8f3244bf44061c5e2f526, type: 3}
   requiredResources:
   - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
-    amount: 2
-  prerequisites:
-  - {fileID: 11400000, guid: 98c68cee7779f29409fbd0a8661f835c, type: 2}
-  startUnlocked: 0
+    amount: 5
+  prerequisites: []
+  startUnlocked: 1

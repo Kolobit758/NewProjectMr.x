@@ -2,30 +2,38 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
-using UnityEngine.EventSystems; // จำเป็นสำหรับการเช็คการชี้เมาส์ (Hover)
+using UnityEngine.EventSystems;
 
+[RequireComponent(typeof(UIAnimationController))] // 🟢 บังคับให้ต้องมีสคริปต์อนิเมชันร่วมด้วย
 public class CompostManagerUI : MonoBehaviour
 {
     public static CompostManagerUI Instance { get; private set; }
 
     [Header("References")]
-    public GameObject mainPanel;               // หน้าต่าง Screen Space UI หลัก
+    public GameObject mainPanel;                  // หน้าต่าง Screen Space UI หลัก
     public Transform recipeButtonContainer;     // Content ของ ScrollView สำหรับวางปุ่มสูตร
     public GameObject recipeButtonPrefab;       // Prefab ปุ่มสูตรปุ๋ย
 
     [Header("Tooltip UI")]
-    public GameObject tooltipPanel;            // Panel สำหรับแสดง Tooltip
-    public TMP_Text tooltipText;               // ข้อความรายละเอียดวัตถุดิบใน Tooltip
+    public GameObject tooltipPanel;             // Panel สำหรับแสดง Tooltip
+    public TMP_Text tooltipText;                // ข้อความรายละเอียดวัตถุดิบใน Tooltip
 
     [Header("All Available Recipes")]
-    public List<SO_CompostRecipe> allMasterRecipes = new List<SO_CompostRecipe>(); // รายการสูตรปุ๋ยทั้งหมดในเกม (ลากมาใส่ใน Inspector)
+    public List<SO_CompostRecipe> allMasterRecipes = new List<SO_CompostRecipe>(); // รายการสูตรปุ๋ยทั้งหมด
 
     private CompostBuilding selectedCompost;    // ตึกตัวที่กำลังถูกกดสั่งงานอยู่ปัจจุบัน
+    private UIAnimationController animController; // 🟢 ตัวควบคุมแอนิเมชันและฝุ่น
 
     void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
+
+        // ดึงคอมโพเนนต์แอนิเมชันจากหน้าต่าง Main Panel
+        if (mainPanel != null)
+        {
+            animController = mainPanel.GetComponent<UIAnimationController>();
+        }
     }
 
     void Start()
@@ -37,19 +45,40 @@ public class CompostManagerUI : MonoBehaviour
         GenerateMasterRecipeButtons();
     }
 
-    // เปิดหน้าต่าง UI กลาง และจดจำตึกตัวที่ถูกคลิก
+    // 🟢 เปิดหน้าต่าง UI กลาง ผ่าน UIAnimationController (มีสไลด์ + ฝุ่น)
     public void OpenCompostPanel(CompostBuilding targetCompost)
     {
         selectedCompost = targetCompost;
-        if (mainPanel != null) mainPanel.SetActive(true);
+        if (mainPanel != null)
+        {
+            if (animController != null)
+            {
+                animController.OpenUI(); // เปิดพร้อมสไลด์และฝุ่น
+            }
+            else
+            {
+                mainPanel.SetActive(true);
+            }
+        }
     }
 
-    // ปิดหน้าต่าง UI กลาง
+    // 🔴 ปิดหน้าต่าง UI กลาง ผ่าน UIAnimationController (สไลด์ออก + ฝุ่น แล้วปิดตัวเอง)
     public void CloseCompostPanel()
     {
         selectedCompost = null;
-        if (mainPanel != null) mainPanel.SetActive(false);
         if (tooltipPanel != null) tooltipPanel.SetActive(false);
+
+        if (mainPanel != null)
+        {
+            if (animController != null)
+            {
+                animController.CloseUI(); // ปิดพร้อมสไลด์เก็บและฝุ่น
+            }
+            else
+            {
+                mainPanel.SetActive(false);
+            }
+        }
     }
 
     // Auto-Generate ปุ่มสูตรปุ๋ยทั้งหมดจาก List
@@ -67,26 +96,22 @@ public class CompostManagerUI : MonoBehaviour
             GameObject btnObj = Instantiate(recipeButtonPrefab, recipeButtonContainer);
             Button btn = btnObj.GetComponent<Button>();
 
-            // ตั้งชื่อปุ่มแสดงชื่อสูตร
             TMP_Text btnText = btnObj.GetComponentInChildren<TMP_Text>();
             if (btnText != null)
             {
                 btnText.text = $"{recipe.recipeName}\nYield: {recipe.resultingFertilizer.itemName}";
             }
 
-            // ผูก Event กดปุ่มสร้าง (เปิดให้กดซ้ำๆ เพื่อ Stack คิวได้โดยไม่ปิด UI)
             SO_CompostRecipe targetRecipe = recipe;
             btn.onClick.AddListener(() =>
             {
                 OnSelectRecipe(targetRecipe);
             });
 
-            // ผูก Event ชี้เมาส์เพื่อแสดง Tooltip
             AddTooltipTriggers(btnObj, recipe);
         }
     }
 
-    // จัดการระบบ Tooltip เมื่อเอาเมาส์ชี้เข้า/ออก
     void AddTooltipTriggers(GameObject buttonObj, SO_CompostRecipe recipe)
     {
         EventTrigger trigger = buttonObj.GetComponent<EventTrigger>();
@@ -107,7 +132,6 @@ public class CompostManagerUI : MonoBehaviour
     {
         if (tooltipPanel == null || tooltipText == null || recipe == null) return;
 
-        // ป้องกันกรณีที่รายชื่อวัตถุดิบเป็นค่าว่าง
         string recipeName = !string.IsNullOrEmpty(recipe.recipeName) ? recipe.recipeName : "Unknown Recipe";
         string yieldName = (recipe.resultingFertilizer != null) ? recipe.resultingFertilizer.itemName : "Unknown Item";
 
@@ -122,7 +146,6 @@ public class CompostManagerUI : MonoBehaviour
                 string itemName = ing.item.itemName;
                 int requiredAmount = ing.amount;
 
-                // เช็คความพร้อมของทรัพยากรในคลังอย่างปลอดภัย
                 bool hasEnough = false;
                 if (ResourceInventory.Instance != null)
                 {
@@ -130,8 +153,6 @@ public class CompostManagerUI : MonoBehaviour
                 }
 
                 string colorTag = hasEnough ? "green" : "red";
-
-                // ใช้การต่อสตริงแบบปลอดภัย
                 details += "- " + itemName + ": <color=" + colorTag + ">" + requiredAmount + "</color>\n";
             }
         }
@@ -148,7 +169,6 @@ public class CompostManagerUI : MonoBehaviour
         }
     }
 
-    // เมื่อผู้เล่นกดปุ่มเลือกสร้างสูตร (สามารถกดรัวๆ เพื่อเพิ่ม Stack คิวได้)
     void OnSelectRecipe(SO_CompostRecipe recipe)
     {
         if (selectedCompost != null)
@@ -157,7 +177,6 @@ public class CompostManagerUI : MonoBehaviour
             if (success)
             {
                 Debug.Log($"✅ Successfully stacked production order for {recipe.recipeName}!");
-                // หมายเหตุ: เอา CloseCompostPanel() ออกแล้ว เพื่อให้ผู้เล่นกดคลิกซ้ำหลายๆ ครั้งเพื่อสะสมคิวได้สะดวก
             }
             else
             {

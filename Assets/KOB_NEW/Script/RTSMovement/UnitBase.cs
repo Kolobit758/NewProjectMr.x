@@ -104,11 +104,22 @@ public class UnitBase : MonoBehaviour
     void Start()
     {
         animalStatsManager = GetComponent<AnimalStatsManager>();
+        DayNightManager.Instance.RegisterUnit(true);
 
         // 🟢 ตรวจสอบและรับค่าสกิลที่ปลดล็อกแล้วจากส่วนกลางทันทีที่เกิด
         if (BuildingUnlockManager.Instance != null)
         {
             BuildingUnlockManager.Instance.ApplyUnlocksToNewUnit(this);
+        }
+    }
+
+
+    void OnDestroy()
+    {
+        if (DayNightManager.Instance != null)
+        {
+            DayNightManager.Instance.RegisterUnit(false);
+            DayNightManager.Instance.CheckLossEvent();
         }
     }
 
@@ -129,7 +140,7 @@ public class UnitBase : MonoBehaviour
             case UnitBehavior.FetchItem_ReturnToOrder: HandleMovingToOrderState(); break;
             case UnitBehavior.DraggingToVault: break;
             case UnitBehavior.Attacking: HandleCombatBehavior(); break;
-            // case UnitBehavior.FarmingPatrol: HandleFarmingPatrolState(); break;
+                // case UnitBehavior.FarmingPatrol: HandleFarmingPatrolState(); break;
         }
     }
 

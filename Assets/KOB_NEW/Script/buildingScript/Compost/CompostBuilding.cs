@@ -16,11 +16,11 @@ public class CompostBuilding : MonoBehaviour, ITaskable
     public float currentProductionProgress = 0f;
 
     [Header("World Space UI Elements")]
-    public GameObject worldSpaceCanvas;      
-    public GameObject openUIButtonObj;       
-    public GameObject progressPanelObj;      
-    public Slider worldProgressBar;          
-    public TMP_Text popupResultText;         
+    public GameObject worldSpaceCanvas;
+    public GameObject openUIButtonObj;
+    public GameObject progressPanelObj;
+    public Slider worldProgressBar;
+    public TMP_Text popupResultText;
     public TMP_Text queueCountText;          // แสดงตัวเลขคิวรอ เช่น "+2"
 
     void Awake()
@@ -61,6 +61,23 @@ public class CompostBuilding : MonoBehaviour, ITaskable
             {
                 canvas.worldCamera = FindAnyObjectByType<Camera>();
             }
+        }
+
+        AutoBindButtonToManager();
+    }
+    private void AutoBindButtonToManager()
+    {
+        if (worldSpaceCanvas == null) return;
+
+        // 1. หาปุ่มที่อยู่ใน Canvas ของ Prefab ตึก
+        Button openBtn = worldSpaceCanvas.GetComponentInChildren<Button>(true);
+        if (openBtn != null)
+        {
+            // 2. เคลียร์ Listener เก่า แล้วผูกเข้ากับฟังก์ชันเปิดหน้าต่างของตึกตัวเอง
+            openBtn.onClick.RemoveListener(OnClickOpenUIButton);
+            openBtn.onClick.AddListener(OnClickOpenUIButton);
+
+            Debug.Log($"🔗 [Prefab UI Auto-Bind]: ผูกปุ่มบนหัวตึก {gameObject.name} สำเร็จเรียบร้อย!");
         }
     }
 

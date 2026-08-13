@@ -18,18 +18,30 @@ public class SO_Building : SO_ItemData
 
     [Header("Building Requirements (ทรัพยากรที่ต้องใช้)")]
     public ResourceCost[] requiredResources; // 🟢 ใส่ใน Inspector ได้เลยว่าใช้ หิน 10, ไม้ 20
+    [Header("Build Tree (Unlock System)")]
+    public SO_Building[] prerequisites;   // 🟢 ต้องสร้างตึกเหล่านี้ก่อน ถึงจะปลดล็อคตึกนี้
+    public bool startUnlocked = false;    // 🟢 ตึกนี้ปลดล็อคตั้งแต่ต้นเกมเลยไหม (ไม่ต้องมี prerequisite ก็ได้)
+
+    public bool IsUnlocked()
+    {
+        if (BuildingUnlockManagers.Instance == null) return true; // กันพังกรณีลืมใส่ manager
+        return BuildingUnlockManagers.Instance.IsUnlocked(this);
+    }
 
     public override bool UseItem(GameObject user)
     {
-        // 🟢 1. เช็คทรัพยากรก่อนเลยว่า "พอสร้างไหม?" (ถ้าไม่พอ ก็ไม่ให้เปิดโหมดเล็งวาง)
-        if (!CanAffordBuilding())
+        if (!IsUnlocked())
         {
-            Debug.LogWarning($"[Grid System] ❌ ทรัพยากรไม่พอสำหรับสร้าง {itemName}!");
-            // TODO: สามารถเพิ่ม UI แจ้งเตือนผู้เล่นตรงนี้ได้
+            Debug.LogWarning($"[Build Tree] 🔒 {itemName} ยังไม่ปลดล็อค!");
             return false;
         }
 
-        // 🏗️ 2. ปลุกระบบกางบล็อกตารางผ่าน Singleton Instance
+        if (!CanAffordBuilding())
+        {
+            Debug.LogWarning($"[Grid System] ❌ ทรัพยากรไม่พอสำหรับสร้าง {itemName}!");
+            return false;
+        }
+
         if (GridPlacementManager.Instance != null && buildingGhostPrefab != null)
         {
             GridPlacementManager.Instance.StartPlacementMode(buildingGhostPrefab, this);
@@ -49,7 +61,7 @@ public class SO_Building : SO_ItemData
         {
 
 
-            if(ResourceInventory.Instance.HasResource(cost.item.itemName,cost.amount) == false) return false; // ของขาด!
+            if (ResourceInventory.Instance.HasResource(cost.item.itemName, cost.amount) == false) return false; // ของขาด!
         }
         return true; // ของครบ!
     }

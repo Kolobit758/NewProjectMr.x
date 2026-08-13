@@ -24,7 +24,9 @@ public class CharacterStats : MonoBehaviour
         currentHP = maxHP;
         currentMana = maxMana;
         currentStamina = maxStamina;
+        
     }
+
 
     // ฟังก์ชันสำคัญ: ใช้รับค่าสเตตัสที่สุ่มมาจากด้านนอก (ใช้ทั้งตอนสัตว์ป่าเกิด และตอนทหารเกิด)
     public void InitializeStats(int newMaxHP, int newCurrentHP)
@@ -44,10 +46,8 @@ public class CharacterStats : MonoBehaviour
         OnHPChanged?.Invoke();
 
         // เรียกใช้ระบบสั่นสะดุ้งถ้าวัตถุนั้นมีคอมโพเนนต์นี้ติดอยู่
-        // ใน CharacterStats.cs ตรงฟังก์ชัน TakeDamage ให้แก้บรรทัดนี้:
         if (TryGetComponent<HitFeedback>(out HitFeedback feedback))
         {
-            // เปลี่ยนจาก feedback.PlayHitFeedback(attackerPosition); เป็นเวอร์ชันนี้
             feedback.PlayHitFeedback(attackerPosition, amount);
         }
 
@@ -56,12 +56,22 @@ public class CharacterStats : MonoBehaviour
             Debug.Log($"{gameObject.name} ตายแล้ว!");
         }
     }
+
+    // 🟢 ฟังก์ชัน Heal สำหรับฟื้นฟูเลือด (รองรับระบบซ่อมตึกหรือฮีลยูนิต)
+    public void Heal(int amount)
+    {
+        currentHP += amount;
+        currentHP = Mathf.Clamp(currentHP, 0, maxHP); // ล็อกไม่ให้เลือดเกิน Max HP
+        OnHPChanged?.Invoke();                        // แจ้งเตือน UI เลือดให้รีเฟรช
+
+        Debug.Log($"💚 [Heal]: {gameObject.name} ได้รับการฟื้นฟู {amount} HP! เลือดปัจจุบัน: {currentHP}/{maxHP}");
+    }
+
     public void Die()
     {
         Debug.Log("is Died");
         Destroy(gameObject);
     }
-
 
     public void UseStamina(int amount)
     {
@@ -81,7 +91,6 @@ public class CharacterStats : MonoBehaviour
     public int[] GetPrivateData()
     {
         int[] privateData = { maxHP, maxMana, maxStamina};
-        // Debug.Log("maxHP : " + maxHP + " maxMana :" + maxMana + " maxStamina : " + maxStamina);
         return privateData;
     }
 
@@ -89,8 +98,16 @@ public class CharacterStats : MonoBehaviour
     [ContextMenu("TumDamage")]
     public void TumDamage()
     {
-        TakeDamage(100, gameObject.transform.position);
+        TakeDamage(20, gameObject.transform.position);
     }
+
+    // 🟢 ปุ่มเทสฮีลเลือดผ่าน ContextMenu
+    [ContextMenu("Test Heal 20 HP")]
+    public void TestHeal()
+    {
+        Heal(20);
+    }
+
     [ContextMenu("UseAllStamina")]
     public void StaminaUsed()
     {

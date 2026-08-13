@@ -17,27 +17,64 @@ public class BuildingUIManager : MonoBehaviour
     void Start()
     {
         if (tooltipPanel != null) tooltipPanel.SetActive(false);
+
+        // 🟢 ดึง list ตึกทั้งหมดที่ลากใส่ไว้ใน Inspector (buildingData) ไปให้ UnlockManager ใช้เลย ไม่ต้องพิมพ์อะไรเพิ่ม
+        if (BuildingUnlockManagers.Instance != null)
+            BuildingUnlockManagers.Instance.InitializeStartingUnlocks(buildingData);
+
         CreateMenu();
+    }
+
+    void OnEnable()
+    {
+        GridPlacementManager.OnBuildingPlaced += HandleBuildingPlaced;
+        if (BuildingUnlockManagers.Instance != null)
+            BuildingUnlockManagers.Instance.OnUnlockChanged += CreateMenu;
+    }
+
+    void OnDisable()
+    {
+        GridPlacementManager.OnBuildingPlaced -= HandleBuildingPlaced;
+        if (BuildingUnlockManagers.Instance != null)
+            BuildingUnlockManagers.Instance.OnUnlockChanged -= CreateMenu;
+    }
+
+    private void HandleBuildingPlaced(SO_Building placed)
+    {
+        // 🟢 ส่ง buildingData list เดิมไปเช็คว่ามีตึกไหนปลดล็อคเพิ่มบ้าง
+        if (BuildingUnlockManagers.Instance != null)
+            BuildingUnlockManagers.Instance.NotifyBuildingPlaced(placed, buildingData);
     }
 
     public void CreateMenu()
     {
         foreach (Transform child in menuContainer) Destroy(child.gameObject);
 
-        foreach (SO_Building building in buildingData)
+        foreach (SO_Building building in buildingData)   // 🟢 loop ทุกตึกใน list ไม่ข้ามตัวที่ล็อค
         {
             if (building == null) continue;
-            GameObject btnObj = Instantiate(btnPrefab, menuContainer);
+
+            bool unlocked = BuildingUnlockManagers.Instance == null || BuildingUnlockManagers.Instance.IsUnlocked(building);
+
+            GameObject btnObj = Instantiate(btnPrefab, menuContainer);   // 🟢 สร้างปุ่มเสมอ ไม่ว่าจะล็อคหรือไม่
             BuildingButton btnScript = btnObj.GetComponent<BuildingButton>();
-            if (btnScript != null) btnScript.InitButton(building, this);
+            if (btnScript != null) btnScript.InitButton(building, this, unlocked);
         }
     }
 
     public void SelectBuildingToPlace(SO_Building selectedBuilding)
     {
+        if (BuildingUnlockManagers.Instance != null && !BuildingUnlockManagers.Instance.IsUnlocked(selectedBuilding))
+        {
+            Debug.LogWarning($"[Build Tree] 🔒 {selectedBuilding.itemName} ยังไม่ปลดล็อค!");
+            return;
+        }
+
         bool success = selectedBuilding.UseItem(null);
         if (success) Debug.Log("เปิดโหมดวางสำเร็จ!");
     }
+
+    // ShowTooltip / HideTooltip เหมือนเดิม ไม่ต้องแก้
 
     public void ShowTooltip(ResourceCost[] costs, Vector3 buttonPosition)
     {

@@ -3,15 +3,21 @@ using UnityEngine.UI;
 
 public class BuildingClickOpenUI : MonoBehaviour
 {
-    public UnitProducerBuilding myBuilding; // ลากตึก (UnitProducerBuilding) ของตัวเองมาใส่
+    public UnitProducerBuilding myBuilding; 
 
     void Start()
     {
+        // ถ้าไม่ได้ลากตึกมาใส่ ให้มันพยายามหาตึกจากแม่ (Parent) ของตัวเองอัตโนมัติ
+        if (myBuilding == null)
+        {
+            myBuilding = GetComponentInParent<UnitProducerBuilding>();
+        }
+
         GetComponent<Button>()?.onClick.AddListener(() => {
-            // 🟢 เรียกใช้ Instance แล้วส่งค่าตึกตัวเองเข้าไปเปิดได้ทันทีแบบง่ายสุดๆ!
-            if (BuildingProductionUI.Instance != null && myBuilding != null)
+            if (myBuilding != null)
             {
-                BuildingProductionUI.Instance.Open(myBuilding);
+                // 🟢 เรียกผ่านฟังก์ชันของตึก เพื่อให้มันส่งข้อมูลต่อให้ BuildingProductionUI จัดการต่อ
+                myBuilding.OnClickOpenUIButton();
             }
         });
     }
