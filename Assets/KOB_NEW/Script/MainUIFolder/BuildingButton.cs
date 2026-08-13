@@ -6,36 +6,37 @@ using TMPro;
 public class BuildingButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("UI Elements in Button")]
-    public Image buildingIconImage;       // รูปภาพตึก/สิ่งก่อสร้าง
-    public TextMeshProUGUI buildingNameText; // ชื่อสิ่งก่อสร้าง (ตามที่วาดไอเดียไว้)
+    public Image buildingIconImage;
+    public TextMeshProUGUI buildingNameText;
+    public GameObject lockIcon; // 🟢 ไอคอนกุญแจ ลากใส่ใน Inspector (จะซ่อน/โชว์อัตโนมัติ)
 
     private SO_Building buildingData;
     private BuildingUIManager uiManager;
 
-    public void InitButton(SO_Building data, BuildingUIManager manager)
+    public void InitButton(SO_Building data, BuildingUIManager manager, bool isUnlocked)
     {
         buildingData = data;
         uiManager = manager;
 
-        // 1. เซ็ตภาพไอคอนตึก
         if (buildingIconImage != null && buildingData.itemIcon != null)
-        {
             buildingIconImage.sprite = buildingData.itemIcon;
-        }
 
-        // 2. เซ็ตชื่อตึก
         if (buildingNameText != null)
-        {
-            buildingNameText.text = buildingData.itemName;
-        }
+            buildingNameText.text = buildingData.itemName; // ชื่อโชว์ปกติ (ถ้าอยากซ่อนชื่อเป็น "???" ตอนล็อค บอกได้ ปรับเพิ่มให้)
 
-        // 3. ผูกปุ่มกดเลือกสร้าง
         Button btn = GetComponent<Button>();
         if (btn != null)
         {
             btn.onClick.RemoveAllListeners();
+            btn.interactable = isUnlocked;              // 🔒 กดไม่ได้ถ้ายังไม่ปลดล็อค
             btn.onClick.AddListener(OnClickBuildingButton);
         }
+
+        if (buildingIconImage != null)
+            buildingIconImage.color = isUnlocked ? Color.white : new Color(0.4f, 0.4f, 0.4f, 1f); // 🟢 หรี่ไอคอนเป็นสีเทาถ้าล็อค
+
+        if (buildingNameText != null)
+            buildingNameText.color = isUnlocked ? Color.black : new Color(0.5f, 0.5f, 0.5f, 1f); // 🟢 ทำชื่อเป็นสีเทาด้วย จะได้ดูล็อคชัดๆ
     }
 
     private void OnClickBuildingButton()

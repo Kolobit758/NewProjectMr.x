@@ -35,7 +35,7 @@ public class AnimalShelter : MonoBehaviour, ITaskable
 
         if (DayNightManager.Instance != null)
         {
-            DayNightManager.Instance.OnTimeChanged -= HandleTimeChanged;
+            // DayNightManager.Instance.OnTimeChanged -= HandleTimeChanged;
         }
     }
 
@@ -43,7 +43,7 @@ public class AnimalShelter : MonoBehaviour, ITaskable
     {
         if (DayNightManager.Instance != null)
         {
-            DayNightManager.Instance.OnTimeChanged += HandleTimeChanged;
+            // DayNightManager.Instance.OnTimeChanged += HandleTimeChanged;
             isCurrentlyNight = DayNightManager.Instance.isNightTime; // ปรับชื่อ property ตามจริงที่ DayNightManager มี
         }
 
@@ -96,42 +96,42 @@ public class AnimalShelter : MonoBehaviour, ITaskable
     }
 
     // เมื่อเปลี่ยนเวลาเป็นกลางวัน ให้เช็คปลุกยูนิตที่นอนกลางวันเสร็จ หรือจัดการยูนิตที่อดนอน
-    private void HandleTimeChanged(bool isNight)
-    {
-        isCurrentlyNight = isNight; // 🟢 บันทึกสถานะเวลาไว้ก่อน
+    // private void HandleTimeChanged(bool isNight)
+    // {
+    //     isCurrentlyNight = isNight; // 🟢 บันทึกสถานะเวลาไว้ก่อน
 
-        if (isNight)
-        {
-            CommandUnitsToSleep();
-        }
-        else
-        {
-            foreach (var unit in shelteredUnits)
-            {
-                if (unit == null) continue;
+    //     if (isNight)
+    //     {
+    //         // CommandUnitsToSleep();
+    //     }
+    //     else
+    //     {
+    //         foreach (var unit in shelteredUnits)
+    //         {
+    //             if (unit == null) continue;
 
-                if (!unit.isSleepingInShelter)
-                {
-                    unit.isExhausted = true;
-                    ForceUnitDaySleep(unit);
+    //             if (!unit.isSleepingInShelter)
+    //             {
+    //                 unit.isExhausted = true;
+    //                 ForceUnitDaySleep(unit);
 
-                    Debug.Log($"⚠️ [Shift System]: {unit.name} อดนอนทำงานกะดึก ต้องพักกลางวันแทน!");
-                }
-                else
-                {
-                    NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
-                    agent.enabled = true;
-                    agent.isStopped = false;
-                    unit.isSleepingInShelter = false;
-                    unit.isExhausted = false; // 🟢 หายเหนื่อยตรงจุดนี้ (เช้าวันถัดไปหลังพักครบ)
-                }
-            }
+    //                 Debug.Log($"⚠️ [Shift System]: {unit.name} อดนอนทำงานกะดึก ต้องพักกลางวันแทน!");
+    //             }
+    //             else
+    //             {
+    //                 NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
+    //                 agent.enabled = true;
+    //                 agent.isStopped = false;
+    //                 unit.isSleepingInShelter = false;
+    //                 unit.isExhausted = false; // 🟢 หายเหนื่อยตรงจุดนี้ (เช้าวันถัดไปหลังพักครบ)
+    //             }
+    //         }
 
-            CommandUnitsToWakeUp();
-        }
+    //         // CommandUnitsToWakeUp();
+    //     }
 
-        UpdateCanvasVisibility(); // 🟢 เช็คทุกครั้งที่เวลาเปลี่ยน
-    }
+    //     UpdateCanvasVisibility(); // 🟢 เช็คทุกครั้งที่เวลาเปลี่ยน
+    // }
 
     // private void CommandUnitsToSleep()
     // {
@@ -152,31 +152,31 @@ public class AnimalShelter : MonoBehaviour, ITaskable
     //         }
     //     }
     // }
-    private void CommandUnitsToSleep()
-    {
-        for (int i = 0; i < shelteredUnits.Count; i++)
-        {
-            UnitBase unit = shelteredUnits[i];
-            if (unit == null) continue;
-            if (unit.isSleepingInShelter) continue; // 🟢 หลับอยู่แล้ว (เช่นพักกลางวันจากโอที) ข้ามไป ไม่ต้องสั่งซ้ำ
+    // private void CommandUnitsToSleep()
+    // {
+    //     for (int i = 0; i < shelteredUnits.Count; i++)
+    //     {
+    //         UnitBase unit = shelteredUnits[i];
+    //         if (unit == null) continue;
+    //         if (unit.isSleepingInShelter) continue; // 🟢 หลับอยู่แล้ว (เช่นพักกลางวันจากโอที) ข้ามไป ไม่ต้องสั่งซ้ำ
 
-            Transform targetSleepPos = (sleepPoints != null && i < sleepPoints.Length) ? sleepPoints[i] : transform;
-            NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
+    //         Transform targetSleepPos = (sleepPoints != null && i < sleepPoints.Length) ? sleepPoints[i] : transform;
+    //         NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
 
-            if (agent != null && agent.isActiveAndEnabled)
-            {
-                unit.ResetUnitState();
-                unit.isSleepingInShelter = true;
+    //         if (agent != null && agent.isActiveAndEnabled)
+    //         {
+    //             unit.ResetUnitState();
+    //             unit.isSleepingInShelter = true;
 
-                agent.isStopped = false;
-                agent.SetDestination(targetSleepPos.position);
+    //             agent.isStopped = false;
+    //             agent.SetDestination(targetSleepPos.position);
 
-                StartCoroutine(WaitAndStopWhenReached(unit, agent, targetSleepPos.position));
+    //             StartCoroutine(WaitAndStopWhenReached(unit, agent, targetSleepPos.position));
 
-                Debug.Log($"💤 [Shelter]: {unit.name} ทิ้งงานแล้วกำลังเดินกลับคอกไปนอน...");
-            }
-        }
-    }
+    //             Debug.Log($"💤 [Shelter]: {unit.name} ทิ้งงานแล้วกำลังเดินกลับคอกไปนอน...");
+    //         }
+    //     }
+    // }
 
     // 🟢 Coroutine คอยเช็คว่าเดินถึงเตียงหรือยัง พึงถึงแล้วค่อยสั่งหยุด
     private IEnumerator WaitAndStopWhenReached(UnitBase unit, NavMeshAgent agent, Vector3 targetPos)
@@ -197,67 +197,67 @@ public class AnimalShelter : MonoBehaviour, ITaskable
         }
     }
 
-    private void CommandUnitsToWakeUp()
-    {
-        foreach (var unit in shelteredUnits)
-        {
-            if (unit.isExhausted) continue;
-            if (unit != null)
-            {
-                Debug.Log($"☀️ [Shelter]: {unit.name} ตื่นนอนพร้อมทำงาน/เดินเล่นตอนเช้า!");
+    // private void CommandUnitsToWakeUp()
+    // {
+    //     foreach (var unit in shelteredUnits)
+    //     {
+    //         if (unit.isExhausted) continue;
+    //         if (unit != null)
+    //         {
+    //             Debug.Log($"☀️ [Shelter]: {unit.name} ตื่นนอนพร้อมทำงาน/เดินเล่นตอนเช้า!");
 
-                NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
-                agent.SetDestination(wakeUpPoint.position);
-            }
-        }
-    }
-    [ContextMenu("ForceWorkInNight")]
-    public void ForceWorkInNight()
-    {
-        foreach (var unit in shelteredUnits)
-        {
-            if (unit == null) continue;
+    //             NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
+    //             agent.SetDestination(wakeUpPoint.position);
+    //         }
+    //     }
+    // }
+    // [ContextMenu("ForceWorkInNight")]
+    // public void ForceWorkInNight()
+    // {
+    //     foreach (var unit in shelteredUnits)
+    //     {
+    //         if (unit == null) continue;
 
-            Debug.Log($"{unit.name} ถูกปลุกออกไปทำงานกะดึก (Over Time)!");
+    //         Debug.Log($"{unit.name} ถูกปลุกออกไปทำงานกะดึก (Over Time)!");
 
-            unit.ResetUnitState();
-            unit.isSleepingInShelter = false;
-            unit.isExhausted = true;
+    //         unit.ResetUnitState();
+    //         unit.isSleepingInShelter = false;
+    //         unit.isExhausted = true;
 
-            NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
-            if (agent != null)
-            {
-                agent.enabled = true;
-                agent.isStopped = false;
-                agent.SetDestination(wakeUpPoint.position);
-            }
-        }
+    //         NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
+    //         if (agent != null)
+    //         {
+    //             agent.enabled = true;
+    //             agent.isStopped = false;
+    //             agent.SetDestination(wakeUpPoint.position);
+    //         }
+    //     }
 
-        UpdateCanvasVisibility(); // 🟢 ปิด Canvas ทันที เพราะตอนนี้ทุกตัวเหนื่อยหมดแล้ว
-    }
+    //     UpdateCanvasVisibility(); // 🟢 ปิด Canvas ทันที เพราะตอนนี้ทุกตัวเหนื่อยหมดแล้ว
+    // }
     #region Sleep Time
     // เพิ่มฟังก์ชันนี้ลงใน AnimalShelter.cs เดิมของคุณ
-    public void ForceUnitDaySleep(UnitBase unit)
-    {
-        if (!shelteredUnits.Contains(unit)) return;
+    // public void ForceUnitDaySleep(UnitBase unit)
+    // {
+    //     if (!shelteredUnits.Contains(unit)) return;
 
-        NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
-        if (agent == null) return;
+    //     NavMeshAgent agent = unit.GetComponent<NavMeshAgent>();
+    //     if (agent == null) return;
 
-        unit.ResetUnitState();
-        unit.isSleepingInShelter = true;
+    //     unit.ResetUnitState();
+    //     unit.isSleepingInShelter = true;
 
-        int idx = shelteredUnits.IndexOf(unit);
-        Transform targetSleepPos = (sleepPoints != null && idx >= 0 && idx < sleepPoints.Length) ? sleepPoints[idx] : transform;
+    //     int idx = shelteredUnits.IndexOf(unit);
+    //     Transform targetSleepPos = (sleepPoints != null && idx >= 0 && idx < sleepPoints.Length) ? sleepPoints[idx] : transform;
 
-        agent.enabled = true;
-        agent.isStopped = false;
-        agent.SetDestination(targetSleepPos.position);
+    //     agent.enabled = true;
+    //     agent.isStopped = false;
+    //     agent.SetDestination(targetSleepPos.position);
 
-        StartCoroutine(WaitAndStopWhenReached(unit, agent, targetSleepPos.position));
+    //     StartCoroutine(WaitAndStopWhenReached(unit, agent, targetSleepPos.position));
 
-        Debug.Log($"🛌 [Shelter]: {unit.name} เข้านอนกลางวันเพื่อพักจากการทำโอที!");
-    }
+    //     Debug.Log($"🛌 [Shelter]: {unit.name} เข้านอนกลางวันเพื่อพักจากการทำโอที!");
+    // }
 
 
     #endregion

@@ -23,3 +23,6 @@ MonoBehaviour:
   requiredResources:
   - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
     amount: 2
+  prerequisites:
+  - {fileID: 11400000, guid: ec389246964fc0c4d9a31fa7e621e592, type: 2}
+  startUnlocked: 0

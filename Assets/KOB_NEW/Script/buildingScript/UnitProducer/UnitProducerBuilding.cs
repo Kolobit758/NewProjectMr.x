@@ -57,7 +57,7 @@ public class UnitProducerBuilding : MonoBehaviour
         }
     }
 
-    void Start()
+void Start()
     {
         if (progressPanelObj != null) progressPanelObj.SetActive(false);
 
@@ -71,7 +71,32 @@ public class UnitProducerBuilding : MonoBehaviour
         }
 
         CalculateProductionSpeed();
+
+        // 🟢 [ทีเด็ดตรงนี้]: สั่งวิ่งไปหาปุ่มใน Canvas ของตึก แล้วผูกฟังก์ชัน OnClickOpenUIButton ให้เองทันที!
+        AutoBindOpenButton();
     }
+
+    private void AutoBindOpenButton()
+    {
+        if (worldSpaceCanvas == null) return;
+
+        // วิ่งไปหาปุ่มทั้งหมดที่เป็นลูกของ World Space Canvas นี้
+        Button[] buttons = worldSpaceCanvas.GetComponentsInChildren<Button>(true);
+        foreach (var btn in buttons)
+        {
+            // ถ้าปุ่มนั้นมีชื่อว่า "Open" หรือ "Button" (หรือตั้งชื่อตามปุ่มของคุณ)
+            if (btn.gameObject.name.Contains("Open") || btn.gameObject.name.Contains("Button"))
+            {
+                // ล้างอันเก่ากันเหนียว แล้วผูกเข้ากับฟังก์ชันเปิดหน้าต่าง UI กลาง
+                btn.onClick.RemoveListener(OnClickOpenUIButton);
+                btn.onClick.AddListener(OnClickOpenUIButton);
+                
+                Debug.Log($"🔗 [Auto-Bind]: เชื่อมปุ่ม {btn.gameObject.name} บนตึก {gameObject.name} สำเร็จ!");
+                break;
+            }
+        }
+    }
+    
 
     void Update()
     {
@@ -265,6 +290,15 @@ public class UnitProducerBuilding : MonoBehaviour
         if (queueCountText != null)
         {
             queueCountText.text = queuedCount > 0 ? $"+{queuedCount}" : "";
+        }
+    }
+
+    public void OnClickOpenUIButton()
+    {
+        if (BuildingProductionUI.Instance != null)
+        {
+            // สั่งเปิดหน้าต่างกลาง พร้อมส่งข้อมูลตึกหลังนี้เข้าไป
+            BuildingProductionUI.Instance.Open(this);
         }
     }
 }

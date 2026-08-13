@@ -406,6 +406,25 @@ public class EnemyController : MonoBehaviour
     void Die()
     {
         Debug.Log($"💀 [Enemy]: {enemyData.enemyName} ถูกกำจัดเรียบร้อย!");
+
+        // 🟢 [ระบบดรอปไอเทมเข้า Inventory ตรงๆ]
+        if (enemyData != null && enemyData.dropItem != null && ResourceInventory.Instance != null)
+        {
+            int dropAmount = Random.Range(enemyData.minDropAmount, enemyData.maxDropAmount + 1);
+
+            // เพิ่มไอเทมเข้ากระเป๋าหลักทันที
+            ResourceInventory.Instance.AddResource(enemyData.dropItem, dropAmount);
+
+            // เด้ง Floating Text โชว์ไอเทมที่ได้เหนือหัวศัตรูก่อนตาย
+            if (FloatingTextManager.Instance != null)
+            {
+                string lootText = $"+{dropAmount} {enemyData.dropItem.itemName}";
+                FloatingTextManager.Instance.ShowText(transform.position + Vector3.up * 1.5f, lootText, Color.green);
+            }
+
+            Debug.Log($"🎁 [Loot Drop]: ได้รับ {enemyData.dropItem.itemName} จำนวน {dropAmount} ชิ้น!");
+        }
+
         if (agent != null) agent.enabled = false;
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = false;

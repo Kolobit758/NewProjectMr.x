@@ -11,10 +11,16 @@ public class GridPlacementManager : MonoBehaviour
     public float cellSize = 1f;
     public LayerMask placementLayer;
 
+    [Header("Collision & Overlap Check")]
+    [Tooltip("Layer ของสิ่งปลูกสร้างอื่นๆ ที่ห้ามวางทับ")]
+    public LayerMask obstacleLayer; 
+    [Tooltip("ขนาดของ Box ที่ใช้เช็คการชนตอนวางตึก (ควรปรับให้เท่ากับขนาดฐานตึก)")]
+    public Vector3 checkCubeSize = new Vector3(0.9f, 1f, 0.9f);
+
     [Header("Height Adjustment")]
-    public float manualYOffset = 0f;           // 🟢 ปรับ global ใน Inspector ได้ (ปรับตายตัวถ้าตึกส่วนใหญ่ลอย/จมเท่ากัน)
-    public float fineTuneStep = 0.05f;         // 🟢 ระยะขยับต่อการกดปุ่ม/scroll 1 ครั้ง
-    private float currentFineTuneOffset = 0f;  // 🟢 offset ที่ปรับสดตอน placement (reset ทุกครั้งที่เริ่มวางใหม่)
+    public float manualYOffset = 0f;             
+    public float fineTuneStep = 0.05f;         
+    private float currentFineTuneOffset = 0f;  
 
     private GameObject currentGhost;
     private SO_Building currentBuildingData;
@@ -22,6 +28,14 @@ public class GridPlacementManager : MonoBehaviour
     private bool isPlacementMode = false;
     public bool IsPlacementModeActive => isPlacementMode;
     private float ghostPivotOffsetY = 0f;
+    public static event System.Action<SO_Building> OnBuildingPlaced; 
+
+    [Header("UI Settings")]
+    public GameObject progressSliderPrefab; 
+    public float ghostBounceFrequency = 5f;
+    public float minAmplitude = 1f;
+    public float maxAmplitude = 5f;
+    public float uiYoffset = 0.5f;
 
     void Awake()
     {
@@ -33,14 +47,22 @@ public class GridPlacementManager : MonoBehaviour
     {
         if (!isPlacementMode) return;
 
-        HandleFineTuneInput(); // 🟢 เช็ค input ปรับความสูงก่อน แล้วค่อย update ตำแหน่ง
+        HandleFineTuneInput(); 
         UpdateGhostPosition();
 
         if (Input.GetMouseButtonDown(0))
         {
             if (currentGhost != null)
             {
-                PlaceStructure();
+                // 🟢 เช็คก่อนว่าตำแหน่งนี้วางได้ไหม (ไม่ชนกับตึกอื่น) ค่อยสร้าง
+                if (IsValidPlacement())
+                {
+                    PlaceStructure();
+                }
+                else
+                {
+                    Debug.Log("⚠️ [Grid Placement]: ตรงนี้มีสิ่งปลูกสร้างอื่นอยู่แล้ว วางทับไม่ได้!");
+                }
             }
         }
 
@@ -50,7 +72,6 @@ public class GridPlacementManager : MonoBehaviour
         }
     }
 
-    // 🟢 ปรับความสูงสดๆ ระหว่าง placement ด้วย PageUp/PageDown หรือ scroll wheel
     private void HandleFineTuneInput()
     {
         if (Input.GetKeyDown(KeyCode.PageUp))
@@ -69,17 +90,12 @@ public class GridPlacementManager : MonoBehaviour
         }
     }
 
-    public void StartPlacementManager(GameObject ghostPrefab, SO_Building buildingData)
-    {
-        // แก้ชื่อเมธอดให้ตรงกันถ้ามีการเรียกใช้จากข้างนอก หรือคงชื่อ StartPlacementMode ไว้ตามเดิม
-    }
-
     public void StartPlacementMode(GameObject ghostPrefab, SO_Building buildingData)
     {
         if (currentGhost != null) Destroy(currentGhost);
 
         currentBuildingData = buildingData;
-        currentFineTuneOffset = 0f; // 🟢 reset ทุกครั้งที่เริ่มวางตึกใหม่
+        currentFineTuneOffset = 0f; 
         currentGhost = InstantiatingGhost(ghostPrefab);
         isPlacementMode = true;
     }
@@ -90,7 +106,8 @@ public class GridPlacementManager : MonoBehaviour
 
         GhostBuilding gb = ghost.GetComponent<GhostBuilding>();
         if (gb == null) gb = ghost.AddComponent<GhostBuilding>();
-        gb.buildingData = currentBuildingData;
+
+        gb.InitializeGhost(currentBuildingData, progressSliderPrefab, uiYoffset, ghostBounceFrequency, minAmplitude, maxAmplitude);
 
         Collider[] ghostColliders = ghost.GetComponentsInChildren<Collider>();
         foreach (Collider c in ghostColliders) c.enabled = false;
@@ -128,9 +145,10 @@ public class GridPlacementManager : MonoBehaviour
 
         if (Physics.Raycast(ray, out hit, 500f, placementLayer))
         {
+            // 🟢 ล็อกตำแหน่ง X และ Z ให้ลงกริดเป๊ะๆ เสมอกัน
             Vector3 gridPos = SnapToGrid(hit.point);
 
-            // 🟢 รวม offset ทั้งหมด: พื้นผิว + offset ที่คำนวณจาก mesh + manual global + fine-tune สด
+            // 🟢 ล็อกความสูง Y ของพื้นผิวให้เรียบเสมอกันตามกริด ไม่กระยุกกระยักตามความชันพื้น
             gridPos.y = hit.point.y + ghostPivotOffsetY + manualYOffset + currentFineTuneOffset;
 
             currentGhost.transform.position = gridPos;
@@ -142,11 +160,25 @@ public class GridPlacementManager : MonoBehaviour
         }
     }
 
+    // 🟢 ฟังก์ชันเช็คการชน: ป้องกันการวางซ้อนทับตึกอื่น
+    private bool IsValidPlacement()
+    {
+        if (currentGhost == null) return false;
+
+        // เช็คพื้นที่รอบๆ ตัวโกสต์ว่ามี Collider ตัวอื่นใน obstacleLayer ขวางอยู่ไหม
+        Vector3 center = currentGhost.transform.position + Vector3.up * (checkCubeSize.y / 2f);
+        Collider[] hits = Physics.OverlapBox(center, checkCubeSize / 2f, Quaternion.identity, obstacleLayer);
+
+        // ถ้าเจอ Collider ขวางอยู่ แปลว่าวางไม่ได้ (คืนค่า false)
+        return hits.Length == 0;
+    }
+
     private void PlaceStructure()
     {
         if (currentGhost == null || !currentGhost.activeSelf) return;
 
         GameObject placedGhost = currentGhost;
+        SO_Building placedBuildingData = currentBuildingData; 
 
         GhostBuilding gb = placedGhost.GetComponent<GhostBuilding>();
         if (gb != null) gb.enabled = true;
@@ -161,8 +193,11 @@ public class GridPlacementManager : MonoBehaviour
 
         currentGhost = null;
         EndPlacementMode();
+
+        OnBuildingPlaced?.Invoke(placedBuildingData); 
     }
 
+    // 🟢 ล็อกพิกัด X และ Z ให้เข้าช่องตาราง Grid แบบล็อกเป็นสเต็ปชัดเจน
     private Vector3 SnapToGrid(Vector3 position)
     {
         float x = Mathf.Floor(position.x / cellSize) * cellSize + (cellSize / 2f);
@@ -179,6 +214,17 @@ public class GridPlacementManager : MonoBehaviour
         if (ResourceInventory.Instance != null)
         {
             ResourceInventory.Instance.NotifyChanged();
+        }
+    }
+
+    // 🟢 วาดเส้นขอบเขตเช็คการชน (Gizmos) ให้เห็นในหน้า Scene View ของ Unity
+    void OnDrawGizmos()
+    {
+        if (currentGhost != null && isPlacementMode)
+        {
+            Gizmos.color = IsValidPlacement() ? Color.green : Color.red;
+            Vector3 center = currentGhost.transform.position + Vector3.up * (checkCubeSize.y / 2f);
+            Gizmos.DrawWireCube(center, checkCubeSize);
         }
     }
 }

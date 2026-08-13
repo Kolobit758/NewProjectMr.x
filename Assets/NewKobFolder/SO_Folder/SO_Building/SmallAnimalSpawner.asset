@@ -25,3 +25,6 @@ MonoBehaviour:
     amount: 5
   - item: {fileID: 11400000, guid: 8fedf311547d09e41883e61e4f7322f3, type: 2}
     amount: 5
+  prerequisites:
+  - {fileID: 11400000, guid: 98c68cee7779f29409fbd0a8661f835c, type: 2}
+  startUnlocked: 0

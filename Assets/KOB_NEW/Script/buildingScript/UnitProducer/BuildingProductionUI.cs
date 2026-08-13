@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections.Generic;
 
+[RequireComponent(typeof(UIAnimationController))] // 🟢 บังคับให้ต้องมีสคริปต์อนิเมชันร่วมด้วย
 public class BuildingProductionUI : MonoBehaviour
 {
-    // 🟢 ทำเป็น Instance เพื่อให้เรียกใช้ง่ายจากที่ไหนก็ได้
     public static BuildingProductionUI Instance { get; private set; }
 
     [Header("UI Panel")]
@@ -15,6 +16,8 @@ public class BuildingProductionUI : MonoBehaviour
     public Transform dataContainer;          
     public GameObject unitButtonPrefab;      
 
+    private UIAnimationController animController; // 🟢 ตัวควบคุมแอนิเมชันและฝุ่น
+
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -24,11 +27,17 @@ public class BuildingProductionUI : MonoBehaviour
         }
         Instance = this;
         
+        // ดึงคอมโพเนนต์แอนิเมชันที่อยู่บน Panel เดียวกันมาเก็บไว้
+        if (productionPanelParent != null)
+        {
+            animController = productionPanelParent.GetComponent<UIAnimationController>();
+        }
+
         // ปิด Panel ไว้ก่อนตอนเริ่มเกม
         if (productionPanelParent != null) productionPanelParent.SetActive(false);
     }
 
-    // 🟢 ฟังชั่น Open ง่ายๆ ที่รับค่าตึกเข้ามาแล้วเปิด UI ทันที
+    // 🟢 ฟังก์ชัน Open ที่สั่งรันผ่าน UIAnimationController (มีสไลด์ + ฝุ่น)
     public void Open(UnitProducerBuilding targetBuilding)
     {
         if (targetBuilding == null) return;
@@ -37,16 +46,39 @@ public class BuildingProductionUI : MonoBehaviour
 
         if (productionPanelParent != null)
         {
-            productionPanelParent.SetActive(true);
+            if (animController != null)
+            {
+                Debug.Log("try to play animation");
+                // สสั่งเปิดผ่านอนิเมชัน (มันจะเปิด GameObject + สไลด์ + เล่นฝุ่นให้เอง)
+                animController.OpenUI();
+            }
+            else
+            {
+                productionPanelParent.SetActive(true);
+            }
         }
 
         RefreshButtons();
     }
 
+    // 🔴 ฟังก์ชัน Close ที่สั่งรันผ่าน UIAnimationController (สไลด์เก็บ + ฝุ่น แล้วปิดตัวเอง)
     public void Close()
     {
-        if (productionPanelParent != null) productionPanelParent.SetActive(false);
-        producerBuilding = null;
+        if (productionPanelParent != null)
+        {
+            if (animController != null)
+            {
+                // สั่งปิดผ่านอนิเมชัน (มันจะสไลด์ออก + เล่นฝุ่น แล้ว Active(false) ให้เองอัตโนมัติ)
+                animController.CloseUI(() => {
+                    producerBuilding = null;
+                });
+            }
+            else
+            {
+                productionPanelParent.SetActive(false);
+                producerBuilding = null;
+            }
+        }
     }
 
     public void RefreshButtons()
