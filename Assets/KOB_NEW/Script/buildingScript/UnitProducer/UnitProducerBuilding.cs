@@ -90,6 +90,8 @@ void Start()
                 // ล้างอันเก่ากันเหนียว แล้วผูกเข้ากับฟังก์ชันเปิดหน้าต่าง UI กลาง
                 btn.onClick.RemoveListener(OnClickOpenUIButton);
                 btn.onClick.AddListener(OnClickOpenUIButton);
+
+                
                 
                 Debug.Log($"🔗 [Auto-Bind]: เชื่อมปุ่ม {btn.gameObject.name} บนตึก {gameObject.name} สำเร็จ!");
                 break;

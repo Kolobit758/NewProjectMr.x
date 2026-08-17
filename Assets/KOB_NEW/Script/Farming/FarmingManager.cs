@@ -23,6 +23,7 @@ public class FarmingManager : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0))
         {
+            Debug.Log("Try to plant");
             TryInteractWithPlot();
         }
     }

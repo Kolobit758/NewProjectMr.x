@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using System;
 
 public class RTS_movement : MonoBehaviour
 {
@@ -55,6 +56,16 @@ public class RTS_movement : MonoBehaviour
 
     // ลิสต์เก็บยูนิตทั้งหมด
     public List<UnitBase> allUnits = new List<UnitBase>();
+
+    // ════════════════════════════════════════════
+    // 🟢 ระบบกอง (Control Groups) Ctrl+1-9 / กด 1-9
+    // ════════════════════════════════════════════
+    private Dictionary<int, List<UnitBase>> _controlGroups = new Dictionary<int, List<UnitBase>>();
+
+    // 🟢 Double-click detection
+    private float _doubleClickThreshold = 0.3f;
+    private float _lastClickTime = -999f;
+    private string _lastClickedUnitTypeName = null;
     [Header("Edge Scroll Settings")]
     public bool enableEdgeScroll = true;
     public float edgeScrollSpeed = 20f;
@@ -82,6 +93,7 @@ public class RTS_movement : MonoBehaviour
         HandleEdgeScroll();   // 🟢 เพิ่มบรรทัดนี้
         HandleSelection();
         HandleZoom();
+        HandleControlGroups(); // 🟢 ระบบกอง Ctrl+1-9
 
         // 🟢 กด Esc เพื่อยกเลิกโหมดชี้เป้าได้ตลอดเวลา
         if (_isInTargetMode && Input.GetKeyDown(KeyCode.Escape))
@@ -264,6 +276,34 @@ public class RTS_movement : MonoBehaviour
             }
         }
 
+        // ════════════════════════════════════════
+        // 🟢 Double-click: เลือก unit ชนิดเดียวกันในขอบจอ
+        // ════════════════════════════════════════
+        if (clickedUnit != null)
+        {
+            float now = Time.unscaledTime;
+            string clickedTypeName = GetUnitTypeName(clickedUnit);
+
+            bool isDoubleClick = (now - _lastClickTime) <= _doubleClickThreshold
+                                 && clickedTypeName == _lastClickedUnitTypeName;
+
+            _lastClickTime = now;
+            _lastClickedUnitTypeName = clickedTypeName;
+
+            if (isDoubleClick)
+            {
+                // Double-click → เลือก unit ชนิดเดียวกันทั้งหมดในขอบจอ
+                SelectSameTypeOnScreen(clickedTypeName);
+                return; // ออกได้เลย ไม่ต้องทำ single select
+            }
+        }
+        else
+        {
+            // คลิกโดนพื้นหรือ non-unit → reset double click timer
+            _lastClickTime = -999f;
+            _lastClickedUnitTypeName = null;
+        }
+
         if (!additive)
         {
             foreach (UnitBase unit in allUnits)
@@ -284,6 +324,47 @@ public class RTS_movement : MonoBehaviour
         {
             OnFarmPlotClicked?.Invoke(clickedFarmGroup);
         }
+    }
+
+    /// <summary>
+    /// 🟢 ดึงชื่อ "ชนิด" ของ unit โดยตัด "(Clone)" ออก
+    /// เพื่อใช้เปรียบเทียบ double-click ว่าเป็น unit ชนิดเดียวกันหรือเปล่า
+    /// </summary>
+    private string GetUnitTypeName(UnitBase unit)
+    {
+        return unit.gameObject.name.Replace("(Clone)", "").Trim();
+    }
+
+    /// <summary>
+    /// 🟢 เลือก unit ทุกตัวที่มีชนิดเดียวกับ typeName และอยู่ในขอบจอของ Camera
+    /// เรียกตอน double-click
+    /// </summary>
+    private void SelectSameTypeOnScreen(string typeName)
+    {
+        // ล้าง selection เดิมทั้งหมด
+        foreach (UnitBase u in allUnits)
+            if (u != null) u.SetSelected(false);
+
+        int count = 0;
+        foreach (UnitBase u in allUnits)
+        {
+            if (u == null) continue;
+            if (GetUnitTypeName(u) != typeName) continue;
+
+            // เช็คว่า unit อยู่ในขอบจอหรือเปล่า
+            Vector3 screenPos = cam.WorldToScreenPoint(u.transform.position);
+            if (screenPos.z < 0) continue; // อยู่ด้านหลังกล้อง
+
+            bool onScreen = screenPos.x >= 0 && screenPos.x <= Screen.width
+                         && screenPos.y >= 0 && screenPos.y <= Screen.height;
+            if (!onScreen) continue;
+
+            u.SetSelected(true);
+            count++;
+        }
+
+        BroadcastSelectionChanged();
+        Debug.Log($"[DoubleClick] เลือก '{typeName}' ในขอบจอ: {count} ตัว");
     }
 
     /// <summary>
@@ -338,6 +419,56 @@ public class RTS_movement : MonoBehaviour
 
         // 🟢 แจ้งทุกคนที่ subscribe ว่าผลการลากคลุมล่าสุดคือใครบ้าง
         BroadcastSelectionChanged();
+    }
+
+    // ════════════════════════════════════════════
+    // 🟢 ระบบกอง (Control Groups)
+    // ════════════════════════════════════════════
+
+    /// <summary>
+    /// จัดการ input ของระบบกอง:
+    /// - Ctrl + 1-9 : บันทึก unit ที่เลือกอยู่เข้ากอง
+    /// - กด 1-9 เฉยๆ : เรียกกอง (เลือก unit ในกองนั้นทันที)
+    /// </summary>
+    private void HandleControlGroups()
+    {
+        for (int i = 1; i <= 9; i++)
+        {
+            KeyCode key = KeyCode.Alpha0 + i; // Alpha1 = 1, Alpha2 = 2 ...
+
+            if (!Input.GetKeyDown(key)) continue;
+
+            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+
+            if (ctrl)
+            {
+                // ─── Ctrl+N : บันทึกกอง ───
+                List<UnitBase> selected = allUnits.FindAll(u => u != null && u.isSelected);
+                if (selected.Count > 0)
+                {
+                    _controlGroups[i] = new List<UnitBase>(selected);
+                    Debug.Log($"[ControlGroup] บันทึกกอง {i}: {selected.Count} unit");
+                }
+            }
+            else
+            {
+                // ─── กด N เฉยๆ : เรียกกอง ───
+                if (!_controlGroups.ContainsKey(i)) continue;
+
+                // ล้าง selection เดิม
+                foreach (UnitBase u in allUnits)
+                    if (u != null) u.SetSelected(false);
+
+                // เลือก unit ในกองนั้น (กรองตัวที่ตายออก)
+                List<UnitBase> group = _controlGroups[i];
+                group.RemoveAll(u => u == null || u.gameObject == null);
+                foreach (UnitBase u in group)
+                    u.SetSelected(true);
+
+                BroadcastSelectionChanged();
+                Debug.Log($"[ControlGroup] เรียกกอง {i}: {group.Count} unit");
+            }
+        }
     }
 
     /// <summary>
