@@ -54,6 +54,9 @@ public class RTS_movement : MonoBehaviour
     public float zoomZRatio = 0.6f;
     public Canvas canvas;
 
+    public GameObject markPrefab;
+    public GameObject _currentMarkInstance;
+
     // ลิสต์เก็บยูนิตทั้งหมด
     public List<UnitBase> allUnits = new List<UnitBase>();
 
@@ -141,6 +144,22 @@ public class RTS_movement : MonoBehaviour
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);
         if (Physics.Raycast(ray, out RaycastHit hit, 1000f))
         {
+            // 🟢 [ใหม่] ถ้ามี mark เกورหลงเหลืออยู่ ให้ทำลายทิ้งทันทีเพื่อไม่ให้ซ้อนกัน
+            if (_currentMarkInstance != null)
+            {
+                Destroy(_currentMarkInstance);
+            }
+
+            // 🟢 สร้าง Mark Prefab ใหม่ตรงจุดที่คลิก (ยกระดับขึ้นเล็กน้อยกันจมพื้น)
+            if (markPrefab != null)
+            {
+                _currentMarkInstance = Instantiate(markPrefab, hit.point + Vector3.up * 0.05f, Quaternion.identity);
+                _currentMarkInstance.transform.localRotation = Quaternion.Euler(180,0,0);
+
+                // ทำลาย Mark ตัวนี้ทิ้งหลังจากผ่านไป 2 วินาที (ถ้ายังไม่ถูกคลิกใหม่ทำลายก่อน)
+                Destroy(_currentMarkInstance, 2f);
+            }
+
             ITaskable clickedTask = hit.collider.GetComponentInParent<ITaskable>();
             List<UnitBase> selectedUnits = allUnits.FindAll(u => u != null && u.isSelected);
 
@@ -448,6 +467,10 @@ public class RTS_movement : MonoBehaviour
                 {
                     _controlGroups[i] = new List<UnitBase>(selected);
                     Debug.Log($"[ControlGroup] บันทึกกอง {i}: {selected.Count} unit");
+                    foreach (UnitBase select in selected)
+                    {
+                        select.SetTextGroup(i);
+                    }
                 }
             }
             else

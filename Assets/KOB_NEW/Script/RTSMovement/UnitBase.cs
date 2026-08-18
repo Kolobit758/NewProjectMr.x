@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.AI;
+using TMPro;
 
 
 /// <summary>
@@ -30,6 +31,7 @@ public class UnitBase : MonoBehaviour
 {
     public AnimalStatsManager animalStatsManager;
     public GameObject selectionCircle;
+    public GameObject textGroup;
     public NavMeshAgent agent;
     private Animator anim;
     public bool isSelected;
@@ -110,7 +112,11 @@ public class UnitBase : MonoBehaviour
         if (BuildingUnlockManager.Instance != null)
         {
             BuildingUnlockManager.Instance.ApplyUnlocksToNewUnit(this);
+            MinimapIcon icon = gameObject.AddComponent<MinimapIcon>();
+            icon.teamType = MinimapIcon.TeamType.PlayerUnit;
         }
+
+        textGroup.SetActive(false);
     }
 
 
@@ -350,8 +356,20 @@ public class UnitBase : MonoBehaviour
     public void SetSelected(bool value)
     {
         isSelected = value;
-        if (selectionCircle != null)
+        if (selectionCircle != null){
             selectionCircle.SetActive(value);
+            
+
+            TMP_Text tmpText = textGroup.GetComponentInChildren<TMP_Text>();
+            textGroup.SetActive(!string.IsNullOrEmpty(tmpText.text));
+        }
+    }
+
+    public void SetTextGroup(int group)
+    {
+        TMP_Text gtext = textGroup.GetComponentInChildren<TMP_Text>();
+        gtext.text = group.ToString();
+        textGroup.SetActive(true);
     }
 
     private void OnTriggerEnter(Collider other)

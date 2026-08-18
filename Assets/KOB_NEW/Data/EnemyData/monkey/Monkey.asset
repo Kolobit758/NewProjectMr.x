@@ -12,10 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bbcd200f58101a040ab38462aa695362, type: 3}
   m_Name: Monkey
   m_EditorClassIdentifier: 
-  enemyName: Moose
+  enemyName: Monkey
   enemyPrefab: {fileID: 8675472550076422665, guid: 068f0a50e160eb24ca8898401aecf5ed, type: 3}
   factionType: 1
   maxHealth: 50
-  attackDamage: 15
+  attackDamage: 50
   attackRange: 3
-  moveSpeed: 50
+  moveSpeed: 20
+  dropItem: {fileID: 11400000, guid: 5addf0215651003489667cb88873c0f7, type: 2}
+  minDropAmount: 1
+  maxDropAmount: 3

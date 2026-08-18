@@ -57,7 +57,7 @@ public class HudController : MonoBehaviour
         if (unitPopulationText == null) return;
 
         int current = AnimalShelter.GetCurrentUnitCount();
-        int total = AnimalShelter.GetTotalCapacity() + SpawnAllUnit.Instance.starterCapacity;
+        int total = AnimalShelter.GetTotalCapacity();
         unitPopulationText.text = $"unit cap : {current} / {total}";
     }
 

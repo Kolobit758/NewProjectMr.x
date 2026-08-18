@@ -1008,6 +1008,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   animalStatsManager: {fileID: 0}
   selectionCircle: {fileID: 0}
+  textGroup: {fileID: 0}
   agent: {fileID: 0}
   isSelected: 0
   buildSpeed: 10
@@ -1078,8 +1079,8 @@ LineRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_Positions:
-  - {x: 0.1543274, y: 0.28323334, z: 29.893524}
-  - {x: -2.5, y: 2.2, z: -0.5}
+  - {x: 55.86023, y: 0.2832334, z: -34.83136}
+  - {x: 65.98674, y: 0.2832334, z: -14.34382}
   m_Parameters:
     serializedVersion: 3
     widthMultiplier: 1

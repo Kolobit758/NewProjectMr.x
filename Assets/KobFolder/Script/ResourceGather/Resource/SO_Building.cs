@@ -42,6 +42,13 @@ public class SO_Building : SO_ItemData
             return false;
         }
 
+        // 🟢 เช็คว่าจำนวนยูนิตปัจจุบันไม่เกินความจุ
+        // if (AnimalShelter.IsTotalCapacityFull())
+        // {
+        //     Debug.LogWarning($"[Capacity] ⚠️ จำนวนสัตว์เต็มความจุแล้ว! ไม่สามารถสร้าง {itemName} ได้!");
+        //     return false;
+        // }
+
         if (GridPlacementManager.Instance != null && buildingGhostPrefab != null)
         {
             GridPlacementManager.Instance.StartPlacementMode(buildingGhostPrefab, this);

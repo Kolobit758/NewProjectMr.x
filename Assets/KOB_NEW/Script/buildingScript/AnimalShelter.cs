@@ -23,7 +23,7 @@ public class AnimalShelter : MonoBehaviour, ITaskable
 
     // 🌐 [Static Manager] รวมความจุโรงสัตว์ทั้งหมดในฉาก
     public static List<AnimalShelter> allShelters = new List<AnimalShelter>();
-    
+
 
     void Awake()
     {
@@ -49,7 +49,7 @@ public class AnimalShelter : MonoBehaviour, ITaskable
         }
 
         canvas.worldCamera = FindAnyObjectByType<Camera>();
-        
+
     }
 
     // 🧮 คำนวณความจุรวมทั้งหมดจากโรงสัตว์ทุกหลังในฉาก (เช่น มี 2 หลัง = ความจุรวม 8 ตัว)
@@ -60,7 +60,7 @@ public class AnimalShelter : MonoBehaviour, ITaskable
         {
             if (shelter != null) total += shelter.animalCapacityBonus;
         }
-        return total;
+        return total + SpawnAllUnit.Instance.starterCapacity;
     }
 
     // � นับจำนวนยูนิตที่ถูก spawn จริง ๆ ทั่วทั้งฉาก ไม่ใช่แค่ที่อยู่ในคอก
@@ -84,11 +84,6 @@ public class AnimalShelter : MonoBehaviour, ITaskable
         return currentTotalAnimals;
     }
 
-    // 🔍 เช็คว่าตอนนี้จำนวนยูนิตทั้งหมดถึงความจุแล้วหรือยัง
-    public static bool IsTotalCapacityFull()
-    {
-        return GetCurrentUnitCount() >= GetTotalCapacity();
-    }
 
     public static string GetPopulationText()
     {
@@ -117,7 +112,7 @@ public class AnimalShelter : MonoBehaviour, ITaskable
         }
     }
 
-    
+
 
     // 🟢 Coroutine คอยเช็คว่าเดินถึงเตียงหรือยัง พึงถึงแล้วค่อยสั่งหยุด
     private IEnumerator WaitAndStopWhenReached(UnitBase unit, NavMeshAgent agent, Vector3 targetPos)
@@ -138,7 +133,31 @@ public class AnimalShelter : MonoBehaviour, ITaskable
         }
     }
 
-  
+    // 🔍 เช็คว่าตอนนี้จำนวนยูนิตทั้งหมด (รวมตัวที่อยู่ในฉาก + ตัวที่กำลังผลิต/รอในคิวของทุกตึก) ถึงความจุแล้วหรือยัง
+    public static bool IsTotalCapacityFull()
+    {
+        return GetTotalPendingUnitCount() >= GetTotalCapacity();
+    }
+
+    // 📊 นับจำนวนยูนิตจริงในฉาก + จำนวนที่กำลังผลิต/รอคิวอยู่ในตึกสร้างทั้งหมด
+    public static int GetTotalPendingUnitCount()
+    {
+        int totalCount = GetCurrentUnitCount();
+
+        // วิ่งไปเช็คตึกผลิตทุกตึกในฉากเพื่อบวกยูนิตที่กำลัง process หรืออยู่ในคิวเพิ่ม
+        UnitProducerBuilding[] allProducers = Object.FindObjectsByType<UnitProducerBuilding>(FindObjectsSortMode.None);
+        foreach (var producer in allProducers)
+        {
+            if (producer != null)
+            {
+                totalCount += producer.GetPendingCount();
+            }
+        }
+
+        return totalCount;
+    }
+
+
 
 
 

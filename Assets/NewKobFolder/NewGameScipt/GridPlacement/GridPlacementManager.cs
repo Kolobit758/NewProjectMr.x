@@ -170,7 +170,16 @@ public class GridPlacementManager : MonoBehaviour
         Collider[] hits = Physics.OverlapBox(center, checkCubeSize / 2f, Quaternion.identity, obstacleLayer);
 
         // ถ้าเจอ Collider ขวางอยู่ แปลว่าวางไม่ได้ (คืนค่า false)
-        return hits.Length == 0;
+        if (hits.Length > 0) return false;
+
+        // 🟢 เช็คว่าจำนวนยูนิตปัจจุบันไม่เกินความจุ
+        if (AnimalShelter.IsTotalCapacityFull())
+        {
+            Debug.LogWarning("⚠️ [Capacity] จำนวนสัตว์เต็มความจุแล้ว!");
+            return false;
+        }
+
+        return true;
     }
 
     private void PlaceStructure()
