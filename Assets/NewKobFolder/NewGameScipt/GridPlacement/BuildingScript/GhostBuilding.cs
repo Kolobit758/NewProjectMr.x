@@ -153,7 +153,9 @@ public class GhostBuilding : MonoBehaviour, ITaskable
 
         if (buildingData != null && buildingData.Realprefab != null)
         {
-            Instantiate(buildingData.Realprefab, transform.position, transform.rotation);
+            GameObject newBuilding = Instantiate(buildingData.Realprefab, transform.position, transform.rotation);
+            MinimapIcon icon = newBuilding.AddComponent<MinimapIcon>();
+            icon.teamType = MinimapIcon.TeamType.Building;
         }
         Destroy(gameObject);
     }

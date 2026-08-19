@@ -6,11 +6,17 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/KOB_NEW/Scene/KobScene02.unity
+    path: Assets/KOB_NEW/Scene/MainMenu.unity
+    guid: 3d426ebe89d52774d9988f9c1ae21ff6
+  - enabled: 1
+    path: Assets/KOB_NEW/Scene/SpringScene.unity
     guid: f4b0515934b604f48b76b4f7ac958d4e
   - enabled: 1
     path: Assets/KOB_NEW/Scene/VictoryScene.unity
     guid: 3b3c52f23f8ab1f41b5c6e7f7602d490
+  - enabled: 1
+    path: Assets/KOB_NEW/Scene/DefeatScene.unity
+    guid: 9b37d63ec4559fd4c89363a5f2c322a3
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

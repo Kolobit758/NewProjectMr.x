@@ -1008,6 +1008,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   animalStatsManager: {fileID: 0}
   selectionCircle: {fileID: 0}
+  textGroup: {fileID: 0}
   agent: {fileID: 0}
   isSelected: 0
   buildSpeed: 10
@@ -1022,8 +1023,6 @@ MonoBehaviour:
   autoTaskScanRadius: 10
   currentJobType: 0
   canAutoGather: 0
-  canAutoFarm: 0
-  autoCareTasks: []
   attackRange: 2
   attackCooldown: 1.5
   damage: 10
@@ -1080,8 +1079,8 @@ LineRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_Positions:
-  - {x: 22.76831, y: 0.28323334, z: -29.647186}
-  - {x: -2.775, y: 0.3299997, z: -13.79}
+  - {x: 55.86023, y: 0.2832334, z: -34.83136}
+  - {x: 65.98674, y: 0.2832334, z: -14.34382}
   m_Parameters:
     serializedVersion: 3
     widthMultiplier: 1

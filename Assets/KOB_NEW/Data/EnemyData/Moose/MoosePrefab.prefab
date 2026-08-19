@@ -188,15 +188,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 400016, guid: 943b85b1e4147284383191bc70786bd5, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 20.470226
+      value: 4.341937
       objectReference: {fileID: 0}
     - target: {fileID: 400016, guid: 943b85b1e4147284383191bc70786bd5, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -1.2000141
+      value: -1.9737015
       objectReference: {fileID: 0}
     - target: {fileID: 400016, guid: 943b85b1e4147284383191bc70786bd5, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -37.07424
+      value: -23.03466
       objectReference: {fileID: 0}
     - target: {fileID: 400016, guid: 943b85b1e4147284383191bc70786bd5, type: 3}
       propertyPath: m_LocalRotation.w
@@ -381,3 +381,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   enemyData: {fileID: 11400000, guid: 6fda8fb5e00fb2443a0506d475893d3d, type: 2}
   scanRadius: 100
+  unitInterruptRange: 6
+  currentTarget: {fileID: 0}
+  cooldownDuration: 0.5

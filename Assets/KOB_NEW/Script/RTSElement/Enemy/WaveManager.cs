@@ -198,6 +198,8 @@ public class WaveManager : MonoBehaviour
 
         Transform spawnPoint = enemySpawnPoints[Random.Range(0, enemySpawnPoints.Length)];
         GameObject enemyObj = Instantiate(enemyData.enemyPrefab, spawnPoint.position, Quaternion.identity);
+        MinimapIcon icon = enemyObj.AddComponent<MinimapIcon>();
+        icon.teamType = MinimapIcon.TeamType.Enemy;
 
         EnemyController controller = enemyObj.GetComponent<EnemyController>();
         if (controller != null)
@@ -214,6 +216,7 @@ public class WaveManager : MonoBehaviour
                 int maxHP = privateData[0];
                 maxHP = Mathf.RoundToInt(maxHP * dayMultiplier * phaseMultiplier);
                 enemyStats.currentHP = maxHP;
+                
             }
         }
     }
