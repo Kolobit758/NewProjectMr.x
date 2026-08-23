@@ -89,7 +89,7 @@ public class CategoryInventoryUI : MonoBehaviour
         tooltipDetail.text = itemData.detail;
 
         // 🟢 ปรับตำแหน่งให้อยู่ "ด้านล่าง" ของปุ่ม (ลดค่า Y ลง เช่น -60 หรือ -80 ตามขนาดปุ่ม)
-        tooltipPanel.transform.position = buttonPosition + new Vector3(0, -500f, 0);
+        tooltipPanel.transform.position = buttonPosition + new Vector3(0, +500f, 0);
     }
     
     public void HideTooltip()

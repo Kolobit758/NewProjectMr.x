@@ -29,9 +29,9 @@ public class SaveLoadManager : MonoBehaviour
 
     void DelayedLoad()
     {
-        LoadGame();
+        // LoadGame();
         Debug.Log("[Load] 🔄 เริ่มโหลดข้อมูลหลังรอ Manager ตื่นครบ!");
-        TryResolvePendingSaveData();
+        // TryResolvePendingSaveData();
     }
 
     public void MarkInventoryDirty() { inventoryDirty = true; }

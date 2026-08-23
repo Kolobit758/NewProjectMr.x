@@ -53,7 +53,7 @@ public class BuildingButton : MonoBehaviour, IPointerEnterHandler, IPointerExitH
         if (buildingData != null && uiManager != null)
         {
             // สั่งให้ UI Manager แสดง Tooltip ขึ้นมา พร้อมส่งข้อมูล requiredResources ไปโชว์
-            uiManager.ShowTooltip(buildingData.requiredResources, transform.position);
+            uiManager.ShowTooltip(buildingData, transform.position);
         }
     }
 

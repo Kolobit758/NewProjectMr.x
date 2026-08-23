@@ -4,11 +4,9 @@ using UnityEngine;
 public class TreeResourceNode : ResourceNodeBase
 {
     public GameObject treelog;
-    public GameObject currentTreeLog;
     public Transform treeStump;
     public Transform tree;
     public float newSpawnDuration = 2f;
-    private bool isDelivered = false;
 
     void Start()
     {
@@ -17,62 +15,33 @@ public class TreeResourceNode : ResourceNodeBase
         canGathering = true;
     }
 
-    protected override void StartLogistic()
+    protected override void StartLogisticForUnit(UnitBase unit)
     {
+        if (unit == null) return;
+
         Transform nearestVault = FindNearestVault();
-        if (nearestVault == null || !canGathering) return;
+        if (nearestVault == null) return;
 
-        StartCoroutine(ReviveTreeCoroutine());
-
-        // สร้างซุงและให้ยูนิตตัวแรกถือ
-        if (treelog != null && units.Count > 0 && units[0] != null)
+        // หากต้นไม้อยู่ในสถานะตัดได้ ให้สั่งเปลี่ยนสถานะเป็นตอไม้และเริ่มคูลดาวน์เกิดใหม่
+        if (canGathering)
         {
-            currentTreeLog = Instantiate(treelog, units[0].transform);
-            currentTreeLog.transform.localPosition = new Vector3(0f, 0f, -2.5f);
-            currentTreeLog.transform.localRotation = Quaternion.identity;
+            StartCoroutine(ReviveTreeCoroutine());
+        }
+
+        unit.gatBase = this;
+        unit.carriedItem = resourceToProduce;
+        unit.carriedAmount = amountResource;
+
+        GameObject currentLog = null;
+        if (treelog != null)
+        {
+            currentLog = Instantiate(treelog, unit.transform);
+            currentLog.transform.localPosition = new Vector3(0f, 0f, -2.5f);
+            currentLog.transform.localRotation = Quaternion.identity;
         }
 
         float draggingSpeed = 2.5f;
-
-        foreach (var unit in units)
-        {
-            if (unit == null) continue;
-            unit.gatBase = this;
-            unit.carriedItem = resourceToProduce;
-            unit.carriedAmount = amountResource;
-            // หมายเหตุ: ใน UnitBase อาจจะต้องปรับให้รองรับ GatheringBase เป็น ResourceNodeBase แทน
-            // unit.gatBase = this; 
-
-            if (currentTreeLog != null)
-            {
-                unit.StartDragging(currentTreeLog.transform, nearestVault, draggingSpeed);
-            }
-        }
-    }
-
-    public override void OnUnitSentResourced()
-    {
-        if (isDelivered) return;
-        isDelivered = true;
-
-        if (currentTreeLog != null)
-        {
-            Destroy(currentTreeLog.gameObject);
-            currentTreeLog = null;
-        }
-
-        // 🔒 เรียก ResetUnitState ให้ยูนิตกลับเข้าสู่สภาพ Idle (ซึ่งจะไปต่อใน Auto-Repeat Loop ได้)
-        foreach (UnitBase unit in units)
-        {
-            if (unit != null)
-            {
-                unit.ResetUnitState();
-            }
-        }
-
-        units.Clear();
-        isLogisticStarted = false;
-        isDelivered = false; // reset กลับเมื่อ cleanup เสร็จสมบูรณ์
+        unit.StartDragging(currentLog != null ? currentLog.transform : null, nearestVault, draggingSpeed);
     }
 
     IEnumerator ReviveTreeCoroutine()

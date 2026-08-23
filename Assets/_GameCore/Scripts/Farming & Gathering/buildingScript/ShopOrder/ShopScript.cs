@@ -11,6 +11,7 @@ public class ShopScript : MonoBehaviour
     {
         canvas.worldCamera = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Camera>();
         button.onClick.AddListener(OnButtonClick);
+       
     }
 
     // Update is called once per frame

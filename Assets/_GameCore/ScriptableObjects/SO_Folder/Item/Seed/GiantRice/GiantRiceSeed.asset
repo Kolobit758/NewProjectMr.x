@@ -18,24 +18,25 @@ MonoBehaviour:
   itemIcon: {fileID: 0}
   detail: 
   dropItemPrefab: {fileID: 3443553743902361851, guid: 22be31d7834bad147a2b1afa3da4c7a1, type: 3}
+  daysToGrow: 1
+  timeToGrowSeconds: 60
+  timeToGrow: 15
   idealNutrients:
     nitrogen: 80
     phosphorus: 80
     potassium: 80
   toleranceRange: 20
-  normalProduct: {fileID: 11400000, guid: 718e5b43bef7ac541826b48d69801ca3, type: 2}
-  premiumProduct: {fileID: 11400000, guid: 27d6f4973ec5fb64781744981673aa9c, type: 2}
-  mutatedProduct: {fileID: 11400000, guid: 3821750c1c8035a44a484254689e5aa0, type: 2}
-  timeToGrow: 15
-  seedPrefab: {fileID: 2123936854500892247, guid: 92665a5022196c74a8ddc390af1c4e19, type: 3}
-  growingPrefab: {fileID: 5446676767368212752, guid: 4e9bfc14d6034ad4288df9f8f36fa89a, type: 3}
-  fullyGrownPrefab: {fileID: 1583156469852305269, guid: 850faaa7e28810240b31fbeb44967891, type: 3}
+  wateringsPerDay: 2
+  fertilizingsPerDay: 1
   cropProduct: {fileID: 11400000, guid: eb5c5f003a4946647bed461e66f1ff62, type: 2}
   cropSeed: {fileID: 11400000}
   minProductAmount: 1
   maxProductAmount: 3
   poopFertilizerProduct: {fileID: 11400000, guid: 33b498a1f7889944aa46608fa0d99f4a, type: 2}
   fertilizerAmount: 1
+  seedPrefab: {fileID: 2123936854500892247, guid: 92665a5022196c74a8ddc390af1c4e19, type: 3}
+  growingPrefab: {fileID: 5446676767368212752, guid: 4e9bfc14d6034ad4288df9f8f36fa89a, type: 3}
+  fullyGrownPrefab: {fileID: 1583156469852305269, guid: 850faaa7e28810240b31fbeb44967891, type: 3}
   specificAttractedEnemies:
   - {fileID: 11400000, guid: 6fda8fb5e00fb2443a0506d475893d3d, type: 2}
   - {fileID: 11400000, guid: 8f12b074652109a44b08dd29f2f98749, type: 2}

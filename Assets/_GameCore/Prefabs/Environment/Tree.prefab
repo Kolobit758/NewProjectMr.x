@@ -136,8 +136,8 @@ Transform:
   m_GameObject: {fileID: 1505689460865478304}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.06569576, y: -1.3841989, z: -0.02797985}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0.06569576, y: -0.6, z: -0.02797985}
+  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 3165061383736279079}
@@ -245,8 +245,8 @@ Transform:
   m_GameObject: {fileID: 3000872372170922692}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -13.2042885, y: 0.58, z: 1.4879799}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -13.2042885, y: -1.1, z: 1.4879799}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8295484179211382649}
@@ -294,7 +294,6 @@ MonoBehaviour:
   canGathering: 1
   isGruopTask: 1
   treelog: {fileID: 182916695364361397, guid: 634b38521f10a8046bac18cc10babb7a, type: 3}
-  currentTreeLog: {fileID: 0}
   treeStump: {fileID: 1312096090249986500}
   tree: {fileID: 4701195362633780107}
   newSpawnDuration: 20
@@ -315,15 +314,21 @@ LODGroup:
   - screenRelativeHeight: 0.6
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 0}
-    - renderer: {fileID: 0}
-    - renderer: {fileID: 0}
+    - renderer: {fileID: 17536932260856416}
+    - renderer: {fileID: 1668531141229472442}
+    - renderer: {fileID: 7597976308375787143}
   - screenRelativeHeight: 0.3
     fadeTransitionWidth: 0
-    renderers: []
-  - screenRelativeHeight: 0.1
+    renderers:
+    - renderer: {fileID: 17536932260856416}
+    - renderer: {fileID: 1668531141229472442}
+    - renderer: {fileID: 7597976308375787143}
+  - screenRelativeHeight: 0
     fadeTransitionWidth: 0
-    renderers: []
+    renderers:
+    - renderer: {fileID: 17536932260856416}
+    - renderer: {fileID: 1668531141229472442}
+    - renderer: {fileID: 7597976308375787143}
   m_Enabled: 1
 --- !u!1 &3179563024261038525
 GameObject:
@@ -500,7 +505,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: cbbcefed7f67d3b49a2d4871cf0cdf17, type: 2}
+  - {fileID: 2100000, guid: c44e41eb42a438c4c9e55d8dbb2df2bd, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

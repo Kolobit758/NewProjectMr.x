@@ -6,8 +6,13 @@ public class BuildingUnlockManagers : MonoBehaviour
 {
     public static BuildingUnlockManagers Instance { get; private set; }
 
-    // 🟢 ใช้ตัว SO_Building asset เป็น key ตรงๆ เลย ไม่ต้องพึ่ง itemId string
+    // 🟢 เก็บรายการตึกที่ปลดล็อคแล้วใน UI Menu
     public HashSet<SO_Building> unlockedBuildings = new HashSet<SO_Building>();
+    
+    // 🟢 เก็บรายการตึกที่สร้างเสร็จจริงแล้วบนแมพ (ไว้ใช้เช็ค prerequisite)
+    public HashSet<SO_Building> placedBuildings = new HashSet<SO_Building>();
+
+    private List<SO_Building> cachedAllBuildings = new List<SO_Building>();
 
     public event Action OnUnlockChanged;
 
@@ -21,10 +26,13 @@ public class BuildingUnlockManagers : MonoBehaviour
     public void InitializeStartingUnlocks(List<SO_Building> allBuildings)
     {
         unlockedBuildings.Clear();
+        placedBuildings.Clear();
+        cachedAllBuildings = allBuildings != null ? new List<SO_Building>(allBuildings) : new List<SO_Building>();
 
-        foreach (var b in allBuildings)
+        foreach (var b in cachedAllBuildings)
         {
             if (b == null) continue;
+            // 🟢 ปลดล็อคตอนเริ่มเกมเฉพาะตึกที่เป็น starter (startUnlocked == true) หรือไม่มี prerequisite
             if (b.startUnlocked || b.prerequisites == null || b.prerequisites.Length == 0)
             {
                 unlockedBuildings.Add(b);
@@ -39,25 +47,52 @@ public class BuildingUnlockManagers : MonoBehaviour
         return unlockedBuildings.Contains(building);
     }
 
-    public void NotifyBuildingPlaced(SO_Building placedBuilding, List<SO_Building> allBuildings)
+    public bool IsPlaced(SO_Building building)
     {
-        if (placedBuilding == null) return;
+        if (building == null) return false;
+        return placedBuildings.Contains(building);
+    }
 
-        unlockedBuildings.Add(placedBuilding);
+    // 🟢 เรียกเมื่อ "สร้างตึกจริงเสร็จสมบูรณ์" ( FinishBuilding ใน GhostBuilding )
+    public void NotifyBuildingCompleted(SO_Building completedBuilding, List<SO_Building> allBuildings = null)
+    {
+        if (completedBuilding == null) return;
 
-        foreach (var candidate in allBuildings)
+        if (allBuildings != null && allBuildings.Count > 0)
+        {
+            cachedAllBuildings = allBuildings;
+        }
+
+        // เพิ่มตึกนี้เข้าไปในรายการตึกที่สร้างเสร็จแล้วบนแมพ
+        placedBuildings.Add(completedBuilding);
+        unlockedBuildings.Add(completedBuilding); // ตึกที่สร้างเสร็จแล้วย่อมถือว่าปลดล็อคแล้วด้วย
+
+        bool anyNewUnlocked = false;
+
+        // วนลูปเช็คตึกทั้งหมดว่ามีตึกไหนปลดล็อคเพิ่มไหม
+        foreach (var candidate in cachedAllBuildings)
         {
             if (candidate == null) continue;
-            if (unlockedBuildings.Contains(candidate)) continue;
+            if (unlockedBuildings.Contains(candidate)) continue; // ปลดล็อคอยู่แล้ว ข้ามไป
 
             if (ArePrerequisitesMet(candidate))
             {
                 unlockedBuildings.Add(candidate);
+                anyNewUnlocked = true;
                 Debug.Log($"[BuildTree] 🔓 ปลดล็อค {candidate.itemName} แล้ว!");
             }
         }
 
-        OnUnlockChanged?.Invoke();
+        if (anyNewUnlocked)
+        {
+            OnUnlockChanged?.Invoke();
+        }
+    }
+
+    // เพื่อรองรับโค้ดเก่า หากมีที่ไหนเรียก NotifyBuildingPlaced
+    public void NotifyBuildingPlaced(SO_Building placedBuilding, List<SO_Building> allBuildings = null)
+    {
+        NotifyBuildingCompleted(placedBuilding, allBuildings);
     }
 
     private bool ArePrerequisitesMet(SO_Building building)
@@ -67,7 +102,8 @@ public class BuildingUnlockManagers : MonoBehaviour
         foreach (var prereq in building.prerequisites)
         {
             if (prereq == null) continue;
-            if (!unlockedBuildings.Contains(prereq)) return false; // 🟢 เทียบ object ตรงๆ ไม่ต้องเทียบ string
+            // 🟢 เงื่อนไข: ต้องสร้างตึกที่เป็น prerequisite บนแมพเสร็จแล้วจริงๆ (อยู่ใน placedBuildings)
+            if (!placedBuildings.Contains(prereq)) return false;
         }
         return true;
     }

@@ -79,6 +79,7 @@ public class ShopUIController : MonoBehaviour
         foreach (Transform child in orderButtonContainer)
         {
             Destroy(child.gameObject);
+
         }
 
         if (ShopOrderManager.Instance == null) return;
@@ -117,15 +118,7 @@ public class ShopUIController : MonoBehaviour
 
             if (reqText != null)
             {
-                string reqInfo = "Requires:\n";
-                foreach (var req in order.requirements)
-                {
-                    bool hasItem = ResourceInventory.Instance.HasResource(req.requiredItem.itemName, req.amount);
-                    string colorTag = hasItem ? "green" : "red";
-
-                    reqInfo += $"- {req.requiredItem.itemName}: <color={colorTag}>{req.amount}</color>\n";
-                }
-                reqText.text = reqInfo;
+                reqText.text = BuildRequirementText(order);
             }
 
             btn.interactable = canComplete;
@@ -135,7 +128,33 @@ public class ShopUIController : MonoBehaviour
             {
                 OnClickDeliverOrder(targetOrderRef);
             });
+
         }
+    }
+
+    // 🟢 3. สร้างข้อความรายการ requirement พร้อมบอกว่า "มีเท่าไหร่ / ต้องการเท่าไหร่" และ "ขาดเท่าไหร่"
+    string BuildRequirementText(ProceduralOrder order)
+    {
+        string reqInfo = "Requires:\n";
+
+        foreach (var req in order.requirements)
+        {
+            int currentAmount = ResourceInventory.Instance.GetResourceAmount(req.requiredItem.itemName);
+            bool hasEnough = currentAmount >= req.amount;
+            string colorTag = hasEnough ? "green" : "red";
+
+            // มี/ต้องการ เช่น "5/10"
+            reqInfo += $"- {req.requiredItem.itemName}: <color={colorTag}>{currentAmount}/{req.amount}</color>";
+
+            // ถ้ายังไม่พอ บอกจำนวนที่ขาดต่อท้ายไปเลย
+
+            reqInfo += $" <color=red>(you have {currentAmount})</color>";
+
+
+            reqInfo += "\n";
+        }
+
+        return reqInfo;
     }
 
     bool CheckIfOrderCanBeCompleted(ProceduralOrder order)

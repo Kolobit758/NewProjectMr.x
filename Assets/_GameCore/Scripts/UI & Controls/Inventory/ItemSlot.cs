@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
-public class ItemSlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+public class ItemSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
     public Image itemIconImage;
     public TextMeshProUGUI amountText;
@@ -50,72 +50,72 @@ public class ItemSlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDr
         }
     }
 
-    public void OnBeginDrag(PointerEventData eventData)
-    {
-        if (myCurrentData == null || myCurrentData.IsEmpty) return;
+    // public void OnBeginDrag(PointerEventData eventData)
+    // {
+    //     if (myCurrentData == null || myCurrentData.IsEmpty) return;
 
-        // 🟢 ไอเทมประเภทตึก ไม่ให้ลากสลับช่อง ให้ใช้วิธีคลิกอย่างเดียว
-        if (myCurrentData.itemData is SO_Building)
-        {
-            eventData.pointerDrag = null; // บอก EventSystem ว่าอย่าเริ่ม Drag กับตัวนี้
-            return;
-        }
+    //     // 🟢 ไอเทมประเภทตึก ไม่ให้ลากสลับช่อง ให้ใช้วิธีคลิกอย่างเดียว
+    //     if (myCurrentData.itemData is SO_Building)
+    //     {
+    //         eventData.pointerDrag = null; // บอก EventSystem ว่าอย่าเริ่ม Drag กับตัวนี้
+    //         return;
+    //     }
 
-        canvasGroup.alpha = 0.5f;
-        canvasGroup.blocksRaycasts = false;
+    //     canvasGroup.alpha = 0.5f;
+    //     canvasGroup.blocksRaycasts = false;
 
-        dragIconClone = new GameObject("DragIconClone");
-        Canvas rootCanvas = GetComponentInParent<Canvas>().rootCanvas;
-        dragIconClone.transform.SetParent(rootCanvas.transform, false);
-        dragIconClone.transform.SetAsLastSibling();
+    //     dragIconClone = new GameObject("DragIconClone");
+    //     Canvas rootCanvas = GetComponentInParent<Canvas>().rootCanvas;
+    //     dragIconClone.transform.SetParent(rootCanvas.transform, false);
+    //     dragIconClone.transform.SetAsLastSibling();
 
-        Image cloneImage = dragIconClone.AddComponent<Image>();
-        cloneImage.sprite = itemIconImage.sprite;
-        cloneImage.raycastTarget = false;
+    //     Image cloneImage = dragIconClone.AddComponent<Image>();
+    //     cloneImage.sprite = itemIconImage.sprite;
+    //     cloneImage.raycastTarget = false;
 
-        RectTransform cloneRect = dragIconClone.GetComponent<RectTransform>();
-        RectTransform myRect = itemIconImage.GetComponent<RectTransform>();
-        cloneRect.sizeDelta = myRect.sizeDelta;
+    //     RectTransform cloneRect = dragIconClone.GetComponent<RectTransform>();
+    //     RectTransform myRect = itemIconImage.GetComponent<RectTransform>();
+    //     cloneRect.sizeDelta = myRect.sizeDelta;
 
-        itemIconImage.enabled = false;
-        amountText.text = "";
-        itemName.text = "";
-    }
+    //     itemIconImage.enabled = false;
+    //     amountText.text = "";
+    //     itemName.text = "";
+    // }
 
-    public void OnDrag(PointerEventData eventData)
-    {
-        if (dragIconClone != null)
-        {
-            dragIconClone.transform.position = eventData.position;
-        }
-    }
+    // public void OnDrag(PointerEventData eventData)
+    // {
+    //     if (dragIconClone != null)
+    //     {
+    //         dragIconClone.transform.position = eventData.position;
+    //     }
+    // }
 
-    public void OnEndDrag(PointerEventData eventData)
-    {
-        canvasGroup.blocksRaycasts = true;
+    // public void OnEndDrag(PointerEventData eventData)
+    // {
+    //     canvasGroup.blocksRaycasts = true;
 
-        if (dragIconClone != null)
-        {
-            Destroy(dragIconClone);
-            dragIconClone = null;
-        }
+    //     if (dragIconClone != null)
+    //     {
+    //         Destroy(dragIconClone);
+    //         dragIconClone = null;
+    //     }
 
-        KobInventoryUI mainUI = FindAnyObjectByType<KobInventoryUI>();
-        if (mainUI != null) mainUI.RefreshGridDisplay();
+    //     KobInventoryUI mainUI = FindAnyObjectByType<KobInventoryUI>();
+    //     if (mainUI != null) mainUI.RefreshGridDisplay();
 
-        KobToolbarUI toolbarUI = FindAnyObjectByType<KobToolbarUI>();
-        if (toolbarUI != null) toolbarUI.RefreshToolbarDisplay();
-    }
+    //     KobToolbarUI toolbarUI = FindAnyObjectByType<KobToolbarUI>();
+    //     if (toolbarUI != null) toolbarUI.RefreshToolbarDisplay();
+    // }
 
-    public void OnDrop(PointerEventData eventData)
-    {
-        ItemSlotUI droppedSlot = eventData.pointerDrag?.GetComponent<ItemSlotUI>();
+    // public void OnDrop(PointerEventData eventData)
+    // {
+    //     ItemSlotUI droppedSlot = eventData.pointerDrag?.GetComponent<ItemSlotUI>();
 
-        if (droppedSlot != null)
-        {
-            ResourceInventory.Instance.SwapItems(droppedSlot.slotIndex, this.slotIndex);
-        }
-    }
+    //     if (droppedSlot != null)
+    //     {
+    //         ResourceInventory.Instance.SwapItems(droppedSlot.slotIndex, this.slotIndex);
+    //     }
+    // }
 
     public void OnPointerClick(PointerEventData eventData)
     {

@@ -22,7 +22,11 @@ MonoBehaviour:
   Realprefab: {fileID: 4188102880175366699, guid: cf94c468f85e8d14098f6282153427bd, type: 3}
   requiredResources:
   - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
-    amount: 2
+    amount: 10
+  - item: {fileID: 11400000, guid: 8fedf311547d09e41883e61e4f7322f3, type: 2}
+    amount: 10
+  - item: {fileID: 11400000, guid: 5addf0215651003489667cb88873c0f7, type: 2}
+    amount: 30
   prerequisites:
   - {fileID: 11400000, guid: 98c68cee7779f29409fbd0a8661f835c, type: 2}
   startUnlocked: 0

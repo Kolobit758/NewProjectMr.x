@@ -203,9 +203,9 @@ public class UnitBase : MonoBehaviour
     private bool TryFindMatchingResourceNearLastBase(out ResourceNodeBase node)
     {
         node = null;
-        if (gatBase == null) return false;
+        Vector3 searchCenter = gatBase != null ? gatBase.transform.position : transform.position;
 
-        Collider[] hits = Physics.OverlapSphere(gatBase.transform.position, 12f);
+        Collider[] hits = Physics.OverlapSphere(searchCenter, 15f);
         float minDst = Mathf.Infinity;
 
         foreach (var hit in hits)
@@ -214,6 +214,33 @@ public class UnitBase : MonoBehaviour
             if (rb == null || !rb.canGathering) continue;
 
             if (autoRepeatResourceType != null && rb.resourceToProduce != autoRepeatResourceType) continue;
+
+            float dst = Vector3.Distance(transform.position, rb.transform.position);
+            if (dst < minDst)
+            {
+                minDst = dst;
+                node = rb;
+            }
+        }
+
+        return node != null;
+    }
+
+    /// <summary>
+    /// 🟢 ค้นหาแหล่งทรัพยากรชนิดเดียวกันที่ใกล้ที่สุด โดยตรงตาม resourceToProduce และอยู่ในสถานะเก็บได้ (canGathering == true)
+    /// </summary>
+    public bool TryFindNearbyResourceOfSameType(SO_ItemData targetResourceType, Vector3 centerPosition, out ResourceNodeBase node)
+    {
+        node = null;
+        Collider[] hits = Physics.OverlapSphere(centerPosition, 15f);
+        float minDst = Mathf.Infinity;
+
+        foreach (var hit in hits)
+        {
+            ResourceNodeBase rb = hit.GetComponentInParent<ResourceNodeBase>();
+            if (rb == null || !rb.canGathering) continue;
+
+            if (targetResourceType != null && rb.resourceToProduce != targetResourceType) continue;
 
             float dst = Vector3.Distance(transform.position, rb.transform.position);
             if (dst < minDst)
@@ -481,11 +508,17 @@ public class UnitBase : MonoBehaviour
 
     public void DropItemAtVault()
     {
+        if (draggedVisualTarget != null)
+        {
+            Destroy(draggedVisualTarget.gameObject);
+            draggedVisualTarget = null;
+        }
+
         if (gatBase != null)
         {
             gatBase.OnUnitSentResourced();
-            return;
         }
+
         ResetUnitState();
     }
 

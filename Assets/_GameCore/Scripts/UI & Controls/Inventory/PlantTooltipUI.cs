@@ -52,7 +52,7 @@ public class PlantTooltipUI : MonoBehaviour
         }
 
         // ปรับตำแหน่ง Tooltip ตามตำแหน่งเมาส์หรือปุ่ม
-        tooltipPanel.transform.position = position + new Vector3(0, -500f, 0);
+        tooltipPanel.transform.position = position + new Vector3(0, +500f, 0);
     }
 
     public void HideTooltip()

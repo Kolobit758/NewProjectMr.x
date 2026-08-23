@@ -677,7 +677,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mainMenuScene: MainMenu
-  springScene: SpringScene
+  springScene: SpringScene 1
   summerScene: SummerScene
   autumnScene: AutumnScene
   winterScene: WinterScene

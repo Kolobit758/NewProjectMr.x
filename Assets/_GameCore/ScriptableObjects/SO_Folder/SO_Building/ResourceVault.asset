@@ -21,7 +21,7 @@ MonoBehaviour:
   buildingGhostPrefab: {fileID: 7074387166818058431, guid: 3c361a317e84a9445b812a80b8bb3e0c, type: 3}
   Realprefab: {fileID: 7074387166818058431, guid: 96f8f707f8f492247ad67ade87a211bb, type: 3}
   requiredResources:
-  - item: {fileID: 11400000, guid: 46c63a44532ebe94e8ca2cffc1e32d8b, type: 2}
+  - item: {fileID: 11400000, guid: 5addf0215651003489667cb88873c0f7, type: 2}
     amount: 5
   prerequisites: []
   startUnlocked: 1

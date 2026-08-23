@@ -69,11 +69,41 @@ public class RTS_movement : MonoBehaviour
     private float _doubleClickThreshold = 0.3f;
     private float _lastClickTime = -999f;
     private string _lastClickedUnitTypeName = null;
-    [Header("Edge Scroll Settings")]
-    public bool enableEdgeScroll = true;
-    public float edgeScrollSpeed = 20f;
-    [Tooltip("ระยะห่างจากขอบจอ (พิกเซล) ที่จะเริ่มเลื่อนกล้อง")]
-    public float edgeSize = 20f;
+
+    [Header("Optional Functionality")]
+    [SerializeField] bool moveWithKeyboad;
+    [SerializeField] bool moveWithEdgeScrolling;
+    [SerializeField] bool moveWithMouseDrag;
+
+    [Header("Keyboard Movement")]
+    [SerializeField] float fastSpeed = 0.05f;
+    [SerializeField] float normalSpeed = 0.01f;
+    [SerializeField] float movementSensitivity = 1f; // Hardcoded Sensitivity
+    float movementSpeed;
+
+    [Header("Edge Scrolling Movement")]
+    [SerializeField] float edgeSize = 50f;
+    Vector3 newPosition;
+    bool isCursorSet = false;
+    public Texture2D cursorArrowUp;
+    public Texture2D cursorArrowDown;
+    public Texture2D cursorArrowLeft;
+    public Texture2D cursorArrowRight;
+
+    CursorArrow currentCursor = CursorArrow.DEFAULT;
+    enum CursorArrow
+    {
+        UP,
+        DOWN,
+        LEFT,
+        RIGHT,
+        DEFAULT
+    }
+
+    void Start()
+    {
+        newPosition = transform.position; // 🟢 กัน snap ไป (0,0,0) ตอนเริ่ม
+    }
 
     void Awake()
     {
@@ -93,7 +123,7 @@ public class RTS_movement : MonoBehaviour
         }
 
         HandleCameraPan();
-        HandleEdgeScroll();   // 🟢 เพิ่มบรรทัดนี้
+        HandleCameraMovement();   // 🟢 เพิ่มบรรทัดนี้
         HandleSelection();
         HandleZoom();
         HandleControlGroups(); // 🟢 ระบบกอง Ctrl+1-9
@@ -154,7 +184,7 @@ public class RTS_movement : MonoBehaviour
             if (markPrefab != null)
             {
                 _currentMarkInstance = Instantiate(markPrefab, hit.point + Vector3.up * 0.05f, Quaternion.identity);
-                _currentMarkInstance.transform.localRotation = Quaternion.Euler(180,0,0);
+                _currentMarkInstance.transform.localRotation = Quaternion.Euler(180, 0, 0);
 
                 // ทำลาย Mark ตัวนี้ทิ้งหลังจากผ่านไป 2 วินาที (ถ้ายังไม่ถูกคลิกใหม่ทำลายก่อน)
                 Destroy(_currentMarkInstance, 2f);
@@ -562,36 +592,93 @@ public class RTS_movement : MonoBehaviour
         return new Rect(x, y, w, h);
     }
 
-    void HandleEdgeScroll()
+    #region CameraController
+
+    void HandleCameraMovement()
     {
-        if (!enableEdgeScroll) return;
-        if (GridPlacementManager.Instance != null && GridPlacementManager.Instance.IsPlacementModeActive) return;
+        // 🟢 sync เป้าหมายกับตำแหน่งจริงก่อนทุกเฟรม กัน newPosition ค้างจนไปสู้กับ Pan/Zoom
+        newPosition = transform.position;
 
-        // 🟢 ถ้าเมาส์กดลากเลือกยูนิตอยู่ หรืออยู่เหนือ UI ไม่ต้องเลื่อนกล้อง (กันชนกับ selection box)
-        if (isDragging) return;
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-
-        Vector3 mousePos = Input.mousePosition;
-        Vector3 moveDir = Vector3.zero;
-
-        // เช็คว่าเมาส์อยู่นอกจอหรือเปล่า (เผื่อเคสสลับหน้าต่าง/มัลติมอนิเตอร์) ป้องกันเลื่อนเพี้ยน
-        bool mouseInsideWindow = mousePos.x >= 0 && mousePos.x <= Screen.width &&
-                                 mousePos.y >= 0 && mousePos.y <= Screen.height;
-        if (!mouseInsideWindow) return;
-
-        if (mousePos.x <= edgeSize)
-            moveDir.x = -1f;
-        else if (mousePos.x >= Screen.width - edgeSize)
-            moveDir.x = 1f;
-
-        if (mousePos.y <= edgeSize)
-            moveDir.z = -1f;
-        else if (mousePos.y >= Screen.height - edgeSize)
-            moveDir.z = 1f;
-
-        if (moveDir != Vector3.zero)
+        if (moveWithKeyboad)
         {
-            transform.Translate(moveDir.normalized * edgeScrollSpeed * Time.deltaTime, Space.World);
+            movementSpeed = Input.GetKey(KeyCode.LeftShift) ? fastSpeed : normalSpeed;
+
+            Vector3 dir = Vector3.zero;
+            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) dir += transform.up;
+            if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) dir -= transform.up;
+            if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) dir += transform.right;
+            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) dir -= transform.right;
+
+            // 🟢 คูณ Time.deltaTime ให้ frame-rate independent
+            newPosition += dir * movementSpeed * (Time.deltaTime * 100f); // ปรับ *100f ให้ match ความเร็วเดิมที่คุณคุ้นมือ
+        }
+
+        if (moveWithEdgeScrolling)
+        {
+            if (Input.mousePosition.x > Screen.width - edgeSize)
+            {
+                newPosition += transform.right * movementSpeed * (Time.deltaTime * 100f);
+                ChangeCursor(CursorArrow.RIGHT);
+                isCursorSet = true;
+            }
+            else if (Input.mousePosition.x < edgeSize)
+            {
+                newPosition += transform.right * -movementSpeed * (Time.deltaTime * 100f);
+                ChangeCursor(CursorArrow.LEFT);
+                isCursorSet = true;
+            }
+            else if (Input.mousePosition.y > Screen.height - edgeSize)
+            {
+                newPosition += transform.up * movementSpeed * (Time.deltaTime * 100f);
+                ChangeCursor(CursorArrow.UP);
+                isCursorSet = true;
+            }
+            else if (Input.mousePosition.y < edgeSize)
+            {
+                newPosition += transform.up * -movementSpeed * (Time.deltaTime * 100f);
+                ChangeCursor(CursorArrow.DOWN);
+                isCursorSet = true;
+            }
+            else if (isCursorSet)
+            {
+                ChangeCursor(CursorArrow.DEFAULT);
+                isCursorSet = false;
+            }
+        }
+
+        // 🟢 ถ้าไม่ได้เปิดทั้งสอง option, newPosition == transform.position อยู่แล้ว → Lerp นี้จะไม่ทำอะไรเลย ไม่มีการ drift
+        transform.position = Vector3.Lerp(transform.position, newPosition, Time.deltaTime * movementSensitivity * 10f);
+
+        Cursor.lockState = CursorLockMode.Confined;
+    }
+
+    private void ChangeCursor(CursorArrow newCursor)
+    {
+        // Only change cursor if its not the same cursor
+        if (currentCursor != newCursor)
+        {
+            switch (newCursor)
+            {
+                case CursorArrow.UP:
+                    Cursor.SetCursor(cursorArrowUp, Vector2.zero, CursorMode.Auto);
+                    break;
+                case CursorArrow.DOWN:
+                    Cursor.SetCursor(cursorArrowDown, new Vector2(cursorArrowDown.width, cursorArrowDown.height), CursorMode.Auto); // So the Cursor will stay inside view
+                    break;
+                case CursorArrow.LEFT:
+                    Cursor.SetCursor(cursorArrowLeft, Vector2.zero, CursorMode.Auto);
+                    break;
+                case CursorArrow.RIGHT:
+                    Cursor.SetCursor(cursorArrowRight, new Vector2(cursorArrowRight.width, cursorArrowRight.height), CursorMode.Auto); // So the Cursor will stay inside view
+                    break;
+                case CursorArrow.DEFAULT:
+                    Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+                    break;
+            }
+
+            currentCursor = newCursor;
         }
     }
+    #endregion
+
 }

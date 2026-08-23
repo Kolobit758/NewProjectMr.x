@@ -142,11 +142,21 @@ public class BuildingHealth : MonoBehaviour, ITaskable
         {
             if (ResourceInventory.Instance != null && ResourceInventory.Instance.HasResource(repairItemCost.itemName, repairCostAmount))
             {
-                ResourceInventory.Instance.ConsumeResourceByName(repairItemCost.itemName, repairCostAmount);
+                ResourceInventory.Instance.ConsumeResourceByName(repairItemCost.itemName, repairCostAmount, showFeedback: false);
+
+                // 🟢 Feedback แสดงการเสียทรัพยากรซ่อม ลอยขึ้นเหนือตึก
+                if (FloatingTextManager.Instance != null)
+                {
+                    FloatingTextManager.Instance.ShowResourceSpend(repairItemCost.itemName, repairCostAmount, transform.position + Vector3.up * 2f);
+                }
             }
             else
             {
                 Debug.LogWarning($"⚠️ [Building]: ไอเทมซ่อมไม่พอ! ต้องการ {repairCostAmount} ชิ้นของ {repairItemCost.itemName}");
+                if (FloatingTextManager.Instance != null)
+                {
+                    FloatingTextManager.Instance.ShowText(transform.position + Vector3.up * 2f, $"Need {repairCostAmount} {repairItemCost.itemName}", Color.red);
+                }
                 return;
             }
         }
@@ -171,6 +181,11 @@ public class BuildingHealth : MonoBehaviour, ITaskable
 
         isRepairing = false;
         Debug.Log($"✅ [Building]: ซ่อมแซมตึก {buildingName} เสร็จสิ้น!");
+
+        if (FloatingTextManager.Instance != null)
+        {
+            FloatingTextManager.Instance.ShowText(transform.position + Vector3.up * 2f, $"🔨 Repaired!", Color.green);
+        }
     }
 
     void DestroyBuilding()

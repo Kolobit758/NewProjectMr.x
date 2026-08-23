@@ -16,7 +16,7 @@ public class BuildingUIManager : MonoBehaviour
 
     void Start()
     {
-        if (tooltipPanel != null) tooltipPanel.SetActive(false);
+        // if (tooltipPanel != null) tooltipPanel.SetActive(false);
 
         // 🟢 ดึง list ตึกทั้งหมดที่ลากใส่ไว้ใน Inspector (buildingData) ไปให้ UnlockManager ใช้เลย ไม่ต้องพิมพ์อะไรเพิ่ม
         if (BuildingUnlockManagers.Instance != null)
@@ -41,9 +41,8 @@ public class BuildingUIManager : MonoBehaviour
 
     private void HandleBuildingPlaced(SO_Building placed)
     {
-        // 🟢 ส่ง buildingData list เดิมไปเช็คว่ามีตึกไหนปลดล็อคเพิ่มบ้าง
-        if (BuildingUnlockManagers.Instance != null)
-            BuildingUnlockManagers.Instance.NotifyBuildingPlaced(placed, buildingData);
+        // 🟢 ไม่ต้องสั่งปลดล็อคตอนวางพิมพ์เขียว (Ghost) แล้ว
+        // ระบบจะสั่งปลดล็อคผ่าน GhostBuilding.FinishBuilding() เมื่อสร้างตึกจริงเสร็จสมบูรณ์แทน
     }
 
     public void CreateMenu()
@@ -76,9 +75,11 @@ public class BuildingUIManager : MonoBehaviour
 
     // ShowTooltip / HideTooltip เหมือนเดิม ไม่ต้องแก้
 
-    public void ShowTooltip(ResourceCost[] costs, Vector3 buttonPosition)
+    public void ShowTooltip(SO_Building building, Vector3 buttonPosition)
     {
         if (tooltipPanel == null) return;
+
+        ResourceCost[] buildingItem = building.requiredResources;
 
         // เปิด Panel ก่อนเพื่อให้ Layout ทำงาน
         tooltipPanel.SetActive(true);
@@ -90,7 +91,7 @@ public class BuildingUIManager : MonoBehaviour
         }
 
         // วนลูปสร้างแถวแสดงทรัพยากร
-        foreach (ResourceCost cost in costs)
+        foreach (ResourceCost cost in buildingItem)
         {
             if (cost.item == null) continue;
 
@@ -98,6 +99,7 @@ public class BuildingUIManager : MonoBehaviour
 
             Image iconImg = rowObj.transform.Find("Icon")?.GetComponent<Image>();
             TextMeshProUGUI amountTxt = rowObj.transform.Find("AmountText")?.GetComponent<TextMeshProUGUI>();
+            TextMeshProUGUI ItemName = rowObj.transform.Find("ItemName")?.GetComponent<TextMeshProUGUI>();;
 
             if (iconImg != null && cost.item.itemIcon != null)
                 iconImg.sprite = cost.item.itemIcon;
@@ -105,6 +107,7 @@ public class BuildingUIManager : MonoBehaviour
             if (amountTxt != null)
             {
                 amountTxt.text = cost.amount.ToString();
+                ItemName.text = cost.item.itemName.ToString();
 
                 if (ResourceInventory.Instance != null)
                 {
@@ -115,7 +118,7 @@ public class BuildingUIManager : MonoBehaviour
         }
 
         // 🟢 ปรับตำแหน่งให้อยู่ "ด้านล่าง" ของปุ่ม (ลดค่า Y ลง เช่น -60 หรือ -80 ตามขนาดปุ่ม)
-        tooltipPanel.transform.position = buttonPosition + new Vector3(0, -500f, 0);
+        tooltipPanel.transform.position = buttonPosition + new Vector3(0, +500f, 0);
     }
 
     // 🔴 ฟังก์ชันซ่อน Tooltip เมื่อเมาส์ออก

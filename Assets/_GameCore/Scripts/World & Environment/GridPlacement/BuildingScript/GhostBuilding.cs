@@ -8,7 +8,11 @@ public class GhostBuilding : MonoBehaviour, ITaskable
     public float totalWorkRequired = 100f;
     public float currentWorkDone = 0f;
 
-    private HashSet<UnitBase> activeUnits = new HashSet<UnitBase>();
+    [Header("Detection Settings (ระบบเช็คระยะ)")]
+    [Tooltip("ระยะรัศมีรอบสิ่งก่อสร้างที่ยูนิตต้องอยู่เพื่อช่วยสร้าง")]
+    public float buildRadius = 3.5f;
+    [Tooltip("ใส่ Layer ของยูนิต (เพื่อเพิ่มประสิทธิภาพในการสแกน)")]
+    public LayerMask unitLayer = ~0; 
 
     [Header("Ghost Idle Bounce (ตอนกำลังสร้าง)")]
     public float ghostBounceFrequency;
@@ -17,13 +21,12 @@ public class GhostBuilding : MonoBehaviour, ITaskable
     private Vector3 ghostBaseScale = Vector3.one;
 
     [Header("UI References")]
-    private GameObject sliderPrefab;            // 🟢 รับ Prefab มาจาก GridPlacementManager
+    private GameObject sliderPrefab;
     private float uiOffsetY = 1f;
     private Slider progressSlider;
     private GameObject canvasInstance;
 
-    // 🟢 อัปเดตฟังก์ชันรับค่า Initialize ให้รองรับ Prefab ของ Slider
-    public void InitializeGhost(SO_Building data, GameObject uiPrefab, float customOffsetY,float ghostBounceFrequency,float minAmplitude,float maxAmplitude)
+    public void InitializeGhost(SO_Building data, GameObject uiPrefab, float customOffsetY, float ghostBounceFrequency, float minAmplitude, float maxAmplitude)
     {
         buildingData = data;
         sliderPrefab = uiPrefab;
@@ -52,11 +55,8 @@ public class GhostBuilding : MonoBehaviour, ITaskable
 
     void Update()
     {
-        float speedPerSecond = 0f;
-        foreach (var unit in activeUnits)
-        {
-            speedPerSecond += unit.buildSpeed;
-        }
+        // 🟢 คำนวณความเร็วการสร้างจากยูนิตที่อยู่ในรัศมีแบบเรียลไทม์
+        float speedPerSecond = CalculateBuildSpeedFromNearbyUnits();
 
         if (speedPerSecond > 0)
         {
@@ -66,23 +66,38 @@ public class GhostBuilding : MonoBehaviour, ITaskable
             if (currentWorkDone >= totalWorkRequired)
             {
                 FinishBuilding();
+                return;
             }
         }
 
         UpdateBounceAnimation();
     }
 
+    // 🟢 สแกนหายูนิตในรัศมีรอบๆ Ghost Building
+    private float CalculateBuildSpeedFromNearbyUnits()
+    {
+        float totalSpeed = 0f;
+        Collider[] hitColliders = Physics.OverlapSphere(transform.position, buildRadius, unitLayer);
+
+        foreach (var hitCollider in hitColliders)
+        {
+            UnitBase unit = hitCollider.GetComponent<UnitBase>();
+            if (unit != null)
+            {
+                totalSpeed += unit.buildSpeed;
+            }
+        }
+
+        return totalSpeed;
+    }
+
     private void CreateWorldSpaceUI()
     {
         if (sliderPrefab != null)
         {
-            // 🟢 สร้าง UI จาก Prefab ที่ส่งมาจาก GridPlacementManager
             canvasInstance = Instantiate(sliderPrefab, transform);
-
-            // จัดตำแหน่งให้อยู่เหนือหัวตึกตาม Offset Y
             canvasInstance.transform.localPosition = new Vector3(0f, uiOffsetY, 0f);
 
-            // หา Slider Component ภายใน Prefab
             progressSlider = canvasInstance.GetComponentInChildren<Slider>();
             if (progressSlider != null)
             {
@@ -114,21 +129,9 @@ public class GhostBuilding : MonoBehaviour, ITaskable
         transform.localScale = ghostBaseScale + new Vector3(bounce, bounce, bounce);
     }
 
-    public void OnUnitInteract(UnitBase unit)
-    {
-        if (!activeUnits.Contains(unit))
-        {
-            activeUnits.Add(unit);
-        }
-    }
-
-    public void OnUnitExit(UnitBase unit)
-    {
-        if (activeUnits.Contains(unit))
-        {
-            activeUnits.Remove(unit);
-        }
-    }
+    // 🟢 คงฟังก์ชัน Interface ไว้เพื่อไม่ให้สคริปต์อื่นที่เรียกใช้เกิด Error
+    public void OnUnitInteract(UnitBase unit) { }
+    public void OnUnitExit(UnitBase unit) { }
 
     private void FinishBuilding()
     {
@@ -140,11 +143,16 @@ public class GhostBuilding : MonoBehaviour, ITaskable
             }
         }
 
-        foreach (UnitBase unitBase in new List<UnitBase>(activeUnits))
+        // 🟢 รีเซ็ตยูนิตทั้งหมดที่อยู่ในระยะก่อสร้างเมื่อสร้างเสร็จ
+        Collider[] hitColliders = Physics.OverlapSphere(transform.position, buildRadius, unitLayer);
+        foreach (var hitCollider in hitColliders)
         {
-            unitBase.ResetUnitState();
+            UnitBase unit = hitCollider.GetComponent<UnitBase>();
+            if (unit != null)
+            {
+                unit.ResetUnitState();
+            }
         }
-        activeUnits.Clear();
 
         if (canvasInstance != null)
         {
@@ -161,11 +169,24 @@ public class GhostBuilding : MonoBehaviour, ITaskable
                 icon.teamType = TeamType.Building;
             }
         }
+
+        if (BuildingUnlockManagers.Instance != null && buildingData != null)
+        {
+            BuildingUnlockManagers.Instance.NotifyBuildingCompleted(buildingData);
+        }
+
         Destroy(gameObject);
     }
 
     public Vector3 GetInteractionPoint()
     {
         return transform.position;
+    }
+
+    // 🟢 วาดวงกลมรัศมีในหน้า Scene ช่วยให้มองเห็นระยะสแกนได้ง่ายใน Unity Editor
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, buildRadius);
     }
 }

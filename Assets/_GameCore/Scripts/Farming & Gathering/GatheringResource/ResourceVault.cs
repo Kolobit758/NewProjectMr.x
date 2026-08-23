@@ -12,18 +12,22 @@ public class ResourceVault : MonoBehaviour, ITaskable
 
         if (unit != null && unit.isCarrying && unit.carriedItem != null)
         {
-            ResourceInventory.Instance.AddResource(unit.carriedItem, unit.carriedAmount);
+            ResourceInventory.Instance.AddResource(unit.carriedItem, unit.carriedAmount, showFeedback: false);
 
-            // 🔒 ถ้ายูนิตมี gatBase (Tree/Water node) ให้ gatBase จัดการ ResetUnitState เองผ่าน OnUnitSentResourced
-            // ถ้าไม่มี (เช่น Fetch flow) ค่อย ResetUnitState เอง — ป้องกัน Double-call ที่ทำให้ auto-repeat เสียหาย
+            // 🟢 แสดงตัวเลขทรัพยากรที่ได้รับลอยขึ้นเหนือโกดัง Vault
+            if (FloatingTextManager.Instance != null)
+            {
+                FloatingTextManager.Instance.ShowResourceGain(unit.carriedItem.itemName, unit.carriedAmount, transform.position + Vector3.up * 2.5f);
+            }
+
             if (unit.gatBase != null)
             {
-                unit.DropItemAtVault(); // gatBase จะ reset ให้เอง
+                unit.DropItemAtVault();
             }
             else
             {
-                unit.DropItemAtVault(); // trigger callback ถ้ามี
-                unit.ResetUnitState();  // reset เองเพราะไม่มีใครทำให้
+                unit.DropItemAtVault();
+                unit.ResetUnitState();
             }
         }
     }

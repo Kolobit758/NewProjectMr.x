@@ -7,40 +7,43 @@ public abstract class ResourceNodeBase : MonoBehaviour, ITaskable
     public List<UnitBase> units = new List<UnitBase>();
     public int minPowerToGathering = 0;
     public SO_ItemData resourceToProduce;
-    public int amountResource;
+    public int amountResource = 10;
     public bool canGathering = true;
     
     protected bool isLogisticStarted = false;
-
-
     public bool isGruopTask = false;
 
     public virtual void OnUnitInteract(UnitBase unit)
     {
-        // 🔒 เพิ่ม unit เข้า list แบบ safe (ไม่ซ้ำ, ไม่ null)
-        if (!units.Contains(unit))
-        {
-            units.Add(unit);
-        }
-        units.RemoveAll(u => u == null);
+        if (unit == null) return;
 
-        // 🔒 ถ้าเป็น GroupTask และ logistic เริ่มแล้ว ไม่ต้อง StartLogistic ซ้ำ
-        // แต่ต้อง Add unit เข้า list ก่อนแล้วค่อย return
-        if (isGruopTask && isLogisticStarted) return;
-
-        if (CalculateGatheringPower() >= minPowerToGathering)
+        // 🔒 หากทรัพยากรตรงนี้อยู่ในสถานะถูกตัดไปแล้ว/หมดอยู่ (canGathering == false)
+        // ให้ยูนิตค้นหาแหล่งทรัพยากรชนิดเดียวกันในบริเวณใกล้เคียงแทนทันที
+        if (!canGathering)
         {
-            isLogisticStarted = true;
-            StartLogistic();
+            if (unit.TryFindNearbyResourceOfSameType(resourceToProduce, transform.position, out ResourceNodeBase nearbyNode))
+            {
+                unit.CommandGather(nearbyNode);
+            }
+            else
+            {
+                unit.ResetUnitState();
+            }
+            return;
         }
+
+        // 🟢 ให้ยูนิตแต่ละตัวเริ่มกระบวนการเก็บทรัพยากรรายบุคคลทันที
+        StartLogisticForUnit(unit);
     }
 
     public virtual void OnUnitExit(UnitBase unit) { }
 
-    // ฟังก์ชันนี้ให้ Subclass ไปOverride เขียนพฤติกรรมเฉพาะตัว (เช่น ต้นไม้ลากซุง, น้ำเสกของ)
-    protected abstract void StartLogistic();
+    // ฟังก์ชันนี้ให้ Subclass ไป Override เขียนพฤติกรรมเฉพาะตัวของแต่ละยูนิต
+    protected abstract void StartLogisticForUnit(UnitBase unit);
 
-    public abstract void OnUnitSentResourced();
+    protected virtual void StartLogistic() { }
+
+    public virtual void OnUnitSentResourced() { }
 
     protected Transform FindNearestVault()
     {

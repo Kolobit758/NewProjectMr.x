@@ -11,6 +11,10 @@ public class ResourceInventory : MonoBehaviour
     public int inventorySize = 24;
     public InventorySlotData[] slots;
 
+    [Header("Save / Load")]
+    [Tooltip("เปิด = บันทึกและโหลด inventory จากไฟล์เซฟ (โหมดเล่นยาว)\nปิด = เริ่มที่ 0 ทุกครั้ง ไม่โหลดเซฟเก่า (โหมดทดสอบ 7 วัน)")]
+    public bool enableInventorySaveLoad = false;
+
     [Header("Item Database Setup (ทางลัดดึงของขากลับ)")]
     // 💡 รวบรวมฐานข้อมูลไอเทมทั้งหมดในเกมของคุณเพื่อกู้คืนเซฟขากลับ
     public List<SO_ItemData> itemDatabase = new List<SO_ItemData>();
@@ -40,14 +44,15 @@ public class ResourceInventory : MonoBehaviour
 
     private void Start()
     {
-        if (SaveLoadManager.Instance != null)
-        {
-            SaveLoadManager.Instance.TryLoadPendingInventory();
-        }
+        // 🟡 โหลด inventory จากเซฟ เฉพาะเมื่อเปิด enableInventorySaveLoad ไว้เท่านั้น
+        // if (enableInventorySaveLoad && SaveLoadManager.Instance != null)
+        // {
+        //     SaveLoadManager.Instance.TryLoadPendingInventory();
+        // }
         OnInventoryChanged?.Invoke();
     }
 
-    public void AddResource(SO_ItemData item, int amount)
+    public void AddResource(SO_ItemData item, int amount, bool showFeedback = true)
     {
         if (item == null) return;
 
@@ -81,7 +86,11 @@ public class ResourceInventory : MonoBehaviour
         if (changed)
         {
             OnInventoryChanged?.Invoke();
-            if (SaveLoadManager.Instance != null)
+            if (showFeedback && FloatingTextManager.Instance != null)
+            {
+                FloatingTextManager.Instance.ShowResourceGain(item.itemName, amount);
+            }
+            if (enableInventorySaveLoad && SaveLoadManager.Instance != null)
             {
                 SaveLoadManager.Instance.MarkInventoryDirty();
                 SaveLoadManager.Instance.SaveGame();
@@ -126,7 +135,7 @@ public class ResourceInventory : MonoBehaviour
 
         NotifyChanged(); // 🟢 สั่งรีเฟรช UI ทั้งหมดพร้อมกันทันที!
 
-        if (SaveLoadManager.Instance != null)
+        if (enableInventorySaveLoad && SaveLoadManager.Instance != null)
         {
             SaveLoadManager.Instance.MarkInventoryDirty();
             SaveLoadManager.Instance.SaveGame();
@@ -138,7 +147,7 @@ public class ResourceInventory : MonoBehaviour
     {
         OnInventoryChanged?.Invoke();
     }
-    public bool ConsumeResource(SO_ItemData item, int amountNeeded)
+    public bool ConsumeResource(SO_ItemData item, int amountNeeded, bool showFeedback = true)
     {
         for (int i = 0; i < inventorySize; i++)
         {
@@ -150,7 +159,11 @@ public class ResourceInventory : MonoBehaviour
                     if (slots[i].amount <= 0) slots[i].Clear();
 
                     OnInventoryChanged?.Invoke();
-                    if (SaveLoadManager.Instance != null)
+                    if (showFeedback && FloatingTextManager.Instance != null)
+                    {
+                        FloatingTextManager.Instance.ShowResourceSpend(item.itemName, amountNeeded);
+                    }
+                    if (enableInventorySaveLoad && SaveLoadManager.Instance != null)
                     {
                         SaveLoadManager.Instance.MarkInventoryDirty();
                         SaveLoadManager.Instance.SaveGame();
@@ -193,8 +206,9 @@ public class ResourceInventory : MonoBehaviour
     }
 
     // 🟢 [เพิ่มฟังก์ชันที่ 2]: สั่งค้นหาตามชื่อแล้วหักทรัพยากรออกจากคลังจริงออโต้
-    public void ConsumeResourceByName(string itemNameKey, int amountToConsume)
+    public void ConsumeResourceByName(string itemNameKey, int amountToConsume, bool showFeedback = true)
     {
+        int initialAmount = amountToConsume;
         for (int i = 0; i < inventorySize; i++)
         {
             if (!slots[i].IsEmpty && slots[i].itemData != null)
@@ -208,7 +222,11 @@ public class ResourceInventory : MonoBehaviour
 
                         // สั่งอัปเดตระบบคลังและเซฟเกมตามลอจิกมาตรฐานของมึง
                         NotifyChanged();
-                        if (SaveLoadManager.Instance != null)
+                        if (showFeedback && FloatingTextManager.Instance != null)
+                        {
+                            FloatingTextManager.Instance.ShowResourceSpend(itemNameKey, initialAmount);
+                        }
+                        if (enableInventorySaveLoad && SaveLoadManager.Instance != null)
                         {
                             SaveLoadManager.Instance.MarkInventoryDirty();
                             SaveLoadManager.Instance.SaveGame();
@@ -241,7 +259,7 @@ public class ResourceInventory : MonoBehaviour
 
                         // สั่งอัปเดตระบบคลังและเซฟเกมตามลอจิกมาตรฐานของมึง
                         NotifyChanged();
-                        if (SaveLoadManager.Instance != null)
+                        if (enableInventorySaveLoad && SaveLoadManager.Instance != null)
                         {
                             SaveLoadManager.Instance.MarkInventoryDirty();
                             SaveLoadManager.Instance.SaveGame();
